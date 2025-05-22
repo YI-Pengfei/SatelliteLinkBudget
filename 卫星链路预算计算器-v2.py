@@ -1,7 +1,10 @@
+"""
+依赖库 pip install customtkinter openpyxl pandas
+打包命令：pyinstaller --onedir --windowed  --hidden-import customtkinter  --hidden-import openpyxl --collect-all customtkinter  "D:\PySimpleGUI.py"
+"""
 import tkinter as tk
 import customtkinter as ctk
 from math import sin, cos, tan, log, pi
-import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment  # Add this import
 from tkinter import filedialog, messagebox
