@@ -125,7 +125,7 @@ class InputHandler:
         # 第二组：卫星参数
         satellite_params = [
             ("satellite_height", "卫星高度 (km):"),
-            ("satellite_scan_angle", "卫星扫描角 (度):")
+            ("satellite_scan_angle", "卫星扫描角 (°):")
         ]
         if 'satellite_antenna_gain' in self.params:
             satellite_params.extend([
@@ -502,7 +502,8 @@ class SatelliteLinkBudgetCalculator:
         buttons = [
             ("计算", self.calculate, "#165DFF", 100),
             ("重置", self.reset, "#6B7280", 100),
-            ("输出仿真报告", self.generate_report, "#36B37E", 120),
+            ("输出计算报告", self.generate_report, "#36B37E", 120),
+            ("详细计算公式", self.show_detailed_calculation, "#36B37E", 120),  # 新增按钮
         ]
         for text, command, color, width in buttons:
             button = ctk.CTkButton(
@@ -613,6 +614,47 @@ class SatelliteLinkBudgetCalculator:
         label.pack(side=tk.RIGHT, padx=5)
         setattr(self, attr_name, label)
 
+    def _get_input_params(self):
+        """获取输入参数"""
+        self.input_handler.trigger_all_focus_out()
+
+        # 获取公共输入参数
+        input_params = {
+            "frequency": self.input_handler.get_numeric_value("frequency"),  # GHz,
+            "bandwidth": self.input_handler.get_numeric_value("bandwidth"),  # MHz,
+            "satellite_scan_angle": self.input_handler.get_numeric_value("satellite_scan_angle"),  # 度,
+            "satellite_height": self.input_handler.get_numeric_value("satellite_height"),  # km,
+            
+            "atmospheric_loss": self.input_handler.get_numeric_value("atmospheric_loss") if self.input_handler.flags["atmospheric_loss"].get() else 0,
+            "scintillation_loss": self.input_handler.get_numeric_value("scintillation_loss") if self.input_handler.flags["scintillation_loss"].get() else 0,
+            "polarization_loss": self.input_handler.get_numeric_value("polarization_loss") if self.input_handler.flags["polarization_loss"].get() else 0,
+            
+            "rain_rate": self.input_handler.get_numeric_value("rain_rate") if self.input_handler.flags["rain_rate"].get() else 0,
+            "link_margin": self.input_handler.get_numeric_value("link_margin") if self.input_handler.flags["link_margin"].get() else 0,
+            "beam_edge_loss": self.input_handler.get_numeric_value("beam_edge_loss") if self.input_handler.flags["beam_edge_loss"].get() else 0,
+            "scan_loss": self.input_handler.get_numeric_value("scan_loss") if self.input_handler.flags["scan_loss"].get() else 0,
+        
+            "interference_psd": self.input_handler.get_numeric_value("interference_psd") if self.input_handler.flags["interference_psd"].get() else -math.inf,  # 新增干扰参数
+        }
+
+        # 获取收发端参数
+        if self.link_type_var.get() == "上行": # 上行链路
+            # 发端参数：终端
+            input_params["tx_eirp"] = self.input_handler.get_numeric_value("terminal_eirp")  # dBW
+            # 收端参数：卫星
+            input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("satellite_antenna_gain")  # dBi
+            input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("satellite_noise_temp")
+            input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("satellite_noise_figure")
+        else: # 下行链路
+            # 发端参数：卫星
+            input_params["tx_eirp"] = self.input_handler.get_numeric_value("satellite_eirp")  # dBW
+            # 收端参数：终端
+            input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("terminal_antenna_gain")  # dBi
+            input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("terminal_noise_temp")
+            input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("terminal_noise_figure")
+
+        return input_params
+
     def calculate(self):
         try:
             self.status_var.set("正在计算...")
@@ -659,7 +701,7 @@ class SatelliteLinkBudgetCalculator:
 
             results = {
                 "链路状态": [
-                    ("（位于波束中心的）终端仰角", self.results_temp["terminal_elevation_angle"], "度"),  # 终端仰角作为输出参数
+                    ("（位于波束中心的）终端仰角", self.results_temp["terminal_elevation_angle"], "°"),  # 终端仰角作为输出参数
                     ("星地距离", self.results_temp["distance"], "km"),
                     ("路径损耗", self.results_temp["path_loss"], "dB"),
                     ("雨衰", self.results_temp["rain_fade"], "dB"),
@@ -726,7 +768,7 @@ class SatelliteLinkBudgetCalculator:
                 "frequency": ("频率", "GHz"),
                 "bandwidth": ("带宽", "MHz"),
                 "satellite_height": ("卫星高度", "km"),
-                "satellite_scan_angle": ("卫星扫描角", "度"),
+                "satellite_scan_angle": ("卫星扫描角", "°"),
                 "terminal_eirp": ("终端EIRP", "dBW"),
                 "satellite_antenna_gain": ("卫星天线增益", "dBi"),
                 "satellite_noise_figure": ("卫星噪声系数", "dB"),
@@ -850,6 +892,39 @@ class SatelliteLinkBudgetCalculator:
             messagebox.showinfo("报告生成成功", f"仿真报告已保存至:\n{file_path}")
         except Exception as e:
             messagebox.showerror("报告生成失败", f"生成仿真报告时出错:\n{str(e)}")
+
+    def show_detailed_calculation(self):
+        """显示详细计算步骤"""
+        try:
+            # 获取输入参数
+            input_params = self._get_input_params()
+            # 调用详细计算方法
+            calculator = LinkCalculator()
+            details = calculator.detailed_calculation(input_params)
+            
+            # 创建新窗口显示结果
+            detail_window = ctk.CTkToplevel(self.root)
+            detail_window.title("详细计算步骤")
+            detail_window.geometry("800x600")
+
+            # 将新窗口设置为主窗口的子窗口
+            detail_window.transient(self.root)
+            # 将新窗口提升到最前面
+            detail_window.lift()
+
+            # 创建文本框显示详细步骤
+            text_box = ctk.CTkTextbox(detail_window, wrap="word")
+            text_box.pack(fill="both", expand=True, padx=10, pady=10)
+            
+            # 格式化输出
+            for detail in details:
+                text_box.insert("end", f"步骤: {detail['步骤']}\n")
+                text_box.insert("end", f"公式: {detail['公式']}\n")
+                text_box.insert("end", f"参数: {detail['参数']}\n")
+                text_box.insert("end", f"结果: {detail['结果']}\n\n")
+                
+        except Exception as e:
+            messagebox.showerror("错误", f"无法显示详细计算步骤: {str(e)}")
 
     def toggle_theme(self):
         ctk.set_appearance_mode("dark" if self.theme_switch.get() else "light")
