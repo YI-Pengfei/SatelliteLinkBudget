@@ -1,5 +1,5 @@
 import math
-
+from ChannelModel_3GPP38901 import pathLoss_3GPP38901
 class LinkCalculator:
     def __init__(self):
         # 地球半径 (km)
@@ -7,7 +7,75 @@ class LinkCalculator:
         # 玻尔兹曼常数 (J/K)
         self.BOLTZMANN_CONSTANT = 1.38e-23
 
-    def perform_calculations(self, input_params):
+    def perform_calculations_terrestrial(self, input_params):
+        """执行所有计算步骤，按顺序计算各个参数"""
+        # 获取输入参数
+        # 信号参数
+        freq = input_params["frequency"]  # 信号频率，单位：GHz
+        bandwidth = input_params["bandwidth"]  # 信号带宽，单位：MHz
+
+        # 发射机参数
+        eirp = input_params["tx_eirp"]  # 发射机等效全向辐射功率，单位：dBW
+
+        # 接收机参数
+        ant_gain = input_params["rx_antenna_gain"]  # 接收天线增益，单位：dBi
+        nf = input_params["rx_noise_figure"]  # 接收机噪声系数，单位：dB
+        t_antenna = input_params["rx_noise_temp"]  # 接收天线噪声温度，单位：K
+
+        # 收发设备距离
+        distance = input_params["distance"]  # 星地距离，单位：km
+
+        # 损耗参数 
+        link_margin = input_params["link_margin"] if "link_margin" in input_params else 0  # 链路余量，单位：dB
+        beam_loss = input_params["beam_edge_loss"] if "beam_edge_loss" in input_params else 0  # 波束边缘损耗，单位：dB
+        interference_psd = input_params["interference_psd"] if "interference_psd" in input_params else -math.inf  # 干扰，单位：dBm/MHz
+        # 计算路径损耗
+        path_loss = pathLoss_3GPP38901(freq, "农村宏蜂窝", distance*1000)
+
+        # 计算噪声功率谱密度
+        noise_psd = self.calculate_noise_psd(nf, t_antenna)
+
+        # 计算总损耗
+        total_loss = path_loss + link_margin + beam_loss
+
+        # 计算接收信号功率谱密度
+        received_signal_psd, total_received_power = self.calculate_received_signal(
+            eirp, total_loss, ant_gain, bandwidth
+        )
+
+        # 计算C/N比
+        c_to_n = received_signal_psd - noise_psd
+
+        # 计算C/(N+I)
+        if interference_psd != -math.inf:
+            # 将dB值转换为线性值进行计算
+            c_linear = 10 ** (received_signal_psd / 10)
+            n_linear = 10 ** (noise_psd / 10)
+            i_linear = 10 ** (interference_psd / 10)
+            c_n_plus_i_linear = c_linear / (n_linear + i_linear)
+            c_to_n_plus_i = 10 * math.log10(c_n_plus_i_linear)  # 转换回dB
+        else:
+            c_to_n_plus_i = c_to_n  # 无干扰时等于C/N
+
+        # 计算G/T值
+        gt_ratio = self.calculate_gt_ratio(ant_gain, nf, t_antenna)
+
+        results = {
+            "distance": distance,
+            "path_loss": path_loss,
+            "total_loss": total_loss,
+            "noise_psd": noise_psd,
+            "received_signal_psd": received_signal_psd,
+            "total_received_power": total_received_power,
+            "c_to_n": c_to_n,
+            "c_to_n_plus_i": c_to_n_plus_i,
+            "gt_ratio": gt_ratio
+        }
+        print(results)
+        return results
+
+
+    def perform_calculations_sat(self, input_params):
         """执行所有计算步骤，按顺序计算各个参数"""
         # 获取输入参数
         # 信号参数
@@ -211,7 +279,7 @@ class LinkCalculator:
             {
                 '步骤': '总损耗',
                 '公式': '总损耗 = 路径损耗+雨衰+大气损耗+闪烁损耗+极化损耗+链路余量+波束边缘损耗+扫描损耗',
-                '参数': f'路径损耗={results['path_loss']:.2f}dB, 雨衰={results["rain_fade"]:.2f}dB, 大气损耗={input_params["atmospheric_loss"]}dB, 闪烁损耗={input_params["scintillation_loss"]}dB, 极化损耗={input_params["polarization_loss"]}dB, 链路余量={input_params["link_margin"]}dB, 波束边缘损耗={input_params["beam_edge_loss"]}dB, 扫描损耗={input_params["scan_loss"]}dB',
+                '参数': f"路径损耗={results['path_loss']:.2f}dB, 雨衰={results['rain_fade']:.2f}dB, 大气损耗={input_params['atmospheric_loss']}dB, 闪烁损耗={input_params['scintillation_loss']}dB, 极化损耗={input_params['polarization_loss']}dB, 链路余量={input_params['link_margin']}dB, 波束边缘损耗={input_params['beam_edge_loss']}dB, 扫描损耗={input_params['scan_loss']}dB",
                 '结果': f'{results["total_loss"]:.2f}dB'
             },
             {
