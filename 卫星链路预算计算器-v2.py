@@ -507,6 +507,7 @@ class SatelliteLinkBudgetCalculator:
             ("重置", self.reset, "#6B7280", 100),
             ("输出计算报告", self.generate_report, "#36B37E", 120),
             ("详细计算公式", self.show_detailed_calculation, "#36B37E", 120),  # 新增按钮
+            ("单位转换器", self.show_unit_converter, "#FFA500", 120),  # 新增按钮
         ]
         for text, command, color, width in buttons:
             button = ctk.CTkButton(
@@ -930,7 +931,101 @@ class SatelliteLinkBudgetCalculator:
             messagebox.showerror("错误", f"无法显示详细计算步骤: {str(e)}")
 
     def toggle_theme(self):
+        """ 深色模式 """
         ctk.set_appearance_mode("dark" if self.theme_switch.get() else "light")
+
+    # 添加新的方法实现单位转换器
+    def show_unit_converter(self):
+        """显示单位转换器窗口"""
+        converter_window = ctk.CTkToplevel(self.root)
+        converter_window.title("单位转换器")
+        converter_window.geometry("600x400")
+        
+        # 主框架
+        main_frame = ctk.CTkFrame(converter_window)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # 创建转换器框架
+        converter_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        converter_frame.pack(fill="both", expand=True)
+
+        # 定义转换类型
+        converters = [
+            ("dBW ↔ dBm", "dBW", "dBm", lambda x: x + 30, lambda x: x - 30),
+            ("W ↔ dBW", "W", "dBW", lambda x: 10 * math.log10(x), lambda x: 10 ** (x / 10)),
+            ("dBm/MHz ↔ dBm/RE", "dBm/MHz", "dBm/RE", 
+            lambda x: x - 10 * math.log10(1000/15), 
+            lambda x: x + 10 * math.log10(1000/15)),
+            ("KHz ↔ MHz", "KHz", "MHz", lambda x: x / 1000, lambda x: x * 1000),
+        ]
+
+        # 创建每个转换器的输入框
+        for i, (title, unit1, unit2, func1, func2) in enumerate(converters):
+            frame = ctk.CTkFrame(converter_frame, fg_color="transparent")
+            frame.pack(fill="x", pady=5)
+
+            # 标题
+            ctk.CTkLabel(frame, text=title, font=("微软雅黑", 12, "bold")).pack(side=tk.TOP, pady=5)
+
+            # 输入框容器
+            input_container = ctk.CTkFrame(frame, fg_color="transparent")
+            input_container.pack(fill="x", pady=2)
+
+            # 输入框1
+            input_frame1 = ctk.CTkFrame(input_container, fg_color="transparent")
+            input_frame1.pack(side=tk.LEFT, fill="x", expand=True, padx=5)
+            ctk.CTkLabel(input_frame1, text=unit1, width=80).pack(side=tk.LEFT)
+            entry1 = ctk.CTkEntry(input_frame1)
+            entry1.pack(side=tk.RIGHT, fill="x", expand=True)
+
+            # 输入框2
+            input_frame2 = ctk.CTkFrame(input_container, fg_color="transparent")
+            input_frame2.pack(side=tk.RIGHT, fill="x", expand=True, padx=5)
+            ctk.CTkLabel(input_frame2, text=unit2, width=80).pack(side=tk.LEFT)
+            entry2 = ctk.CTkEntry(input_frame2)
+            entry2.pack(side=tk.RIGHT, fill="x", expand=True)
+
+            # 绑定事件
+            entry1.bind("<FocusIn>", lambda e, e1=entry1: self._on_converter_focus_in(e1))
+            entry1.bind("<FocusOut>", lambda e, e1=entry1, e2=entry2, f=func1: 
+                        self._on_converter_focus_out(e1, e2, f))
+            entry2.bind("<FocusIn>", lambda e, e2=entry2: self._on_converter_focus_in(e2))
+            entry2.bind("<FocusOut>", lambda e, e1=entry1, e2=entry2, f=func2: 
+                        self._on_converter_focus_out(e2, e1, f))
+
+    def _on_converter_focus_in(self, entry):
+        """当输入框获得焦点时，显示原始公式"""
+        if hasattr(entry, 'raw_formula'):
+            entry.delete(0, tk.END)
+            entry.insert(0, entry.raw_formula)
+
+    def _on_converter_focus_out(self, src_entry, dst_entry, convert_func):
+        """当输入框失去焦点时，计算并显示结果"""
+        expr = src_entry.get().strip()
+        src_entry.raw_formula = expr
+        try:
+            value = safe_eval(expr)
+            if value is not None:
+                result = convert_func(float(value))
+                dst_entry.delete(0, tk.END)
+                dst_entry.insert(0, f"{result:.4f}")
+        except Exception as e:
+            dst_entry.delete(0, tk.END)
+
+
+    def _update_converter(self, src_entry, dst_entry, convert_func):
+        """更新转换结果"""
+        try:
+            value_str = src_entry.get().strip()
+            if not value_str:
+                dst_entry.delete(0, tk.END)
+                return
+            value = float(value_str)
+            result = convert_func(value)
+            dst_entry.delete(0, tk.END)
+            dst_entry.insert(0, f"{result:.4f}")
+        except ValueError:
+            dst_entry.delete(0, tk.END)
 
 
 if __name__ == "__main__":
