@@ -10,12 +10,10 @@
 """
 import tkinter as tk
 import customtkinter as ctk
-from math import sin, cos, tan, log, pi
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment  # Add this import
 from tkinter import filedialog, messagebox
 from datetime import datetime
-import os
 import math
 from LinkCalculator import LinkCalculator
 from SafeMath import safe_eval, format_result
@@ -183,7 +181,6 @@ class SatelliteLinkBudgetCalculator:
                 "bandwidth": "0.72" if link_type == "地-地上行" else "5",
                 "distance": "1", # 收发端2d距离 km
                 "beam_edge_loss": "1",
-                "link_margin": "3",
                 "interference_psd": "-inf"
             }
             specific_params = {
@@ -278,13 +275,12 @@ class SatelliteLinkBudgetCalculator:
                 "frequency": self.input_handler.get_numeric_value("frequency"),  # GHz,
                 "bandwidth": self.input_handler.get_numeric_value("bandwidth"),  # MHz,
                 "distance": self.input_handler.get_numeric_value("distance"),  # km, 收发端2d距离 km
-
-                "link_margin": self.input_handler.get_numeric_value("link_margin") if self.input_handler.flags["link_margin"].get() else 0,
                 "beam_edge_loss": self.input_handler.get_numeric_value("beam_edge_loss") if self.input_handler.flags["beam_edge_loss"].get() else 0,
-            
                 "interference_psd": self.input_handler.get_numeric_value("interference_psd") if self.input_handler.flags["interference_psd"].get() else -math.inf,  # 新增干扰参数
             }
-
+            # 合并进地面信道状态信息 
+            input_params.update(self.input_handler.get_terrestrial_link_parameters()) 
+            print(input_params)
             # 获取收发端参数
             if self.link_type_var.get() == "地-地上行": # 地-地上行链路
                 # 发端参数：终端

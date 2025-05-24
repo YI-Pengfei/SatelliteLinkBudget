@@ -147,15 +147,32 @@ class InputHandler:
         # 分隔线
         self.create_separator(scrollable_frame)
 
-        # 第五组：链路余量
-        self.create_group_title(scrollable_frame, "5. 链路余量", group_title_font, group_title_color)
-        param_labels = [
-            ("link_margin", "链路余量 (dB):"),
-        ]
-        self.create_param_entries(scrollable_frame, param_labels, compact=True, has_checkboxes=True)
+        if 'satellite_height' in self.params:
+            # 第五组：链路余量
+            self.create_group_title(scrollable_frame, "5. 链路余量", group_title_font, group_title_color)
+            param_labels = [
+                ("link_margin", "链路余量 (dB):"),
+            ]
+            self.create_param_entries(scrollable_frame, param_labels, compact=True, has_checkboxes=True)
+            # 分隔线
+            self.create_separator(scrollable_frame)
+        else:
+            group5_frame = ctk.CTkFrame(self.parent)
+            group5_frame.pack(pady=10, fill=tk.X)
+            # 新增场景选择控件
+            scenario_frame = ctk.CTkFrame(group5_frame)
+            scenario_frame.pack(pady=5, fill=tk.X)
+            # 场景类型选择
+            ctk.CTkLabel(scenario_frame, text="地面场景:").grid(row=0, column=0, padx=5)
+            self.scenario_var = tk.StringVar(value='城市宏蜂窝UMa')
+            ctk.CTkRadioButton(scenario_frame, text="城市宏蜂窝UMa", variable=self.scenario_var, value='城市宏蜂窝UMa').grid(row=0, column=1)
+            ctk.CTkRadioButton(scenario_frame, text="农村宏蜂窝RMa", variable=self.scenario_var, value='农村宏蜂窝RMa').grid(row=0, column=2)
 
-        # 分隔线
-        self.create_separator(scrollable_frame)
+            # 传播条件选择
+            ctk.CTkLabel(scenario_frame, text="链路状态:").grid(row=1, column=0, padx=5, pady=(10,0))
+            self.los_var = tk.StringVar(value='LoS')
+            ctk.CTkRadioButton(scenario_frame, text="LoS", variable=self.los_var, value='LoS').grid(row=1, column=1, pady=(10,0))
+            ctk.CTkRadioButton(scenario_frame, text="NLoS", variable=self.los_var, value='NLoS').grid(row=1, column=2, pady=(10,0))
 
         # 第六组：干扰
         self.create_group_title(scrollable_frame, "6. 干扰", group_title_font, group_title_color)
@@ -301,6 +318,11 @@ class InputHandler:
         for entry in self.entries.values():
             entry.event_generate("<FocusOut>")
 
+    def get_terrestrial_link_parameters(self):
+        return {
+            'scenario': self.scenario_var.get(),
+            'los_condition': self.los_var.get(),
+        }
 
 # 结果显示类
 class ResultDisplay:

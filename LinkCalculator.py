@@ -21,6 +21,8 @@ class LinkCalculator:
         freq = input_params["frequency"]  # 信号频率，单位：GHz
         bandwidth = input_params["bandwidth"]  # 信号带宽，单位：MHz
 
+        scene = input_params["scenario"]  # 场景，取值为 "农村宏蜂窝RMa"（RMa） 或 "城市宏蜂窝"（UMa）
+        los_condition = input_params["los_condition"]  # LOS条件，取值为 "LOS"、"NLoS" 或 "LOS+NLoS"
         # 发射机参数
         eirp = input_params["tx_eirp"]  # 发射机等效全向辐射功率，单位：dBW
 
@@ -33,17 +35,16 @@ class LinkCalculator:
         distance = input_params["distance"]  # 星地距离，单位：km
 
         # 损耗参数 
-        link_margin = input_params["link_margin"] if "link_margin" in input_params else 0  # 链路余量，单位：dB
         beam_loss = input_params["beam_edge_loss"] if "beam_edge_loss" in input_params else 0  # 波束边缘损耗，单位：dB
         interference_psd = input_params["interference_psd"] if "interference_psd" in input_params else -math.inf  # 干扰，单位：dBm/MHz
         # 计算路径损耗
-        path_loss = pathLoss_3GPP38901(freq, "农村宏蜂窝", distance*1000)
+        path_loss = pathLoss_3GPP38901(freq, distance*1000, scene, los_condition)
 
         # 计算噪声功率谱密度
         noise_psd = self.calculate_noise_psd(nf, t_antenna)
 
         # 计算总损耗
-        total_loss = path_loss + link_margin + beam_loss
+        total_loss = path_loss + beam_loss
 
         # 计算接收信号功率谱密度
         received_signal_psd, total_received_power = self.calculate_received_signal(
