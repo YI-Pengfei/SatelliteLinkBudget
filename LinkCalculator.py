@@ -1,3 +1,10 @@
+"""
+LinkCalculator.py
+功能：
+1. 计算链路的各种参数，包括路径损耗、噪声功率谱密度、接收信号功率谱密度、C/N比、C/(N+I)、G/T值等。
+2. 支持不同的链路类型，包括地面链路和卫星链路。
+"""
+
 import math
 from ChannelModel_3GPP38901 import pathLoss_3GPP38901
 class LinkCalculator:

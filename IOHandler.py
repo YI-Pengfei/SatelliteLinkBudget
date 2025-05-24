@@ -1,3 +1,11 @@
+"""
+IOHandler.py
+功能：处理用户输入，包括参数输入和标志设置。
+包含：
+- InputHandler 类：用于处理用户输入，包括参数输入和标志设置。
+- OutputHandler 类：用于处理输出，包括结果显示和导出功能。
+"""
+
 import tkinter as tk
 import customtkinter as ctk
 from SafeMath import safe_eval, format_result

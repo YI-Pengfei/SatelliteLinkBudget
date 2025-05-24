@@ -1,3 +1,9 @@
+"""
+SafeMath.py
+------------------------
+安全数学函数库
+------------------------
+"""
 import math
 from tkinter import messagebox
 # ------------------------
