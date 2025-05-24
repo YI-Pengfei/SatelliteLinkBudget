@@ -71,7 +71,6 @@ class LinkCalculator:
             "c_to_n_plus_i": c_to_n_plus_i,
             "gt_ratio": gt_ratio
         }
-        print(results)
         return results
 
 

@@ -126,7 +126,7 @@ class InputHandler:
             ("frequency", "频率 (GHz):"),
             ("bandwidth", "带宽 (MHz):"),
         ]
-        if 'bs_eirp' in self.params or 'terminal_eirp' in self.params:
+        if 'bs_eirp' in self.params or 'bs_noise_figure' in self.params:
             param_labels.extend([
                 ("distance", "距离 (km):"),
             ])
@@ -436,11 +436,8 @@ class ResultDisplay:
         # 遍历每个结果分类
         for category_idx, (category, items) in enumerate(results.items()):
             # 复用或创建分类框架
-            if category in self.category_frames:
-                category_frame = self.category_frames[category]
-            else:
-                category_frame = ctk.CTkFrame(self.result_container, fg_color="transparent")
-                self.category_frames[category] = category_frame
+            category_frame = ctk.CTkFrame(self.result_container, fg_color="transparent")
+            self.category_frames[category] = category_frame
             
             # 分类标题
             if not hasattr(category_frame, 'title_label'):
@@ -454,19 +451,15 @@ class ResultDisplay:
             category_frame.title_label.configure(text=category)
             
             # 结果项容器
-            if not hasattr(category_frame, 'item_frames'):
-                category_frame.item_frames = []
+            category_frame.item_frames = []
             
             # 更新或创建结果项
             for item_idx, (label, value, unit) in enumerate(items):
-                if item_idx < len(category_frame.item_frames):
-                    item_frame = category_frame.item_frames[item_idx]
-                else:
-                    item_frame = ctk.CTkFrame(category_frame, fg_color="transparent")
-                    item_frame.pack(fill=tk.X, pady=2)
-                    ctk.CTkLabel(item_frame, width=200, anchor="w").pack(side=tk.LEFT, padx=10)
-                    ctk.CTkLabel(item_frame, anchor="e").pack(side=tk.RIGHT, padx=10)
-                    category_frame.item_frames.append(item_frame)
+                item_frame = ctk.CTkFrame(category_frame, fg_color="transparent")
+                item_frame.pack(fill=tk.X, pady=2)
+                ctk.CTkLabel(item_frame, width=200, anchor="w").pack(side=tk.LEFT, padx=10)
+                ctk.CTkLabel(item_frame, anchor="e").pack(side=tk.RIGHT, padx=10)
+                category_frame.item_frames.append(item_frame)
                 
                 # 更新标签内容
                 item_labels = item_frame.winfo_children()
@@ -667,14 +660,17 @@ class SatelliteLinkBudgetCalculator:
         """设置G/T值显示框"""
         gt_frame = self.input_handler.gt_frame
         if link_type == "星-地上行":
-            self._create_gt_label(gt_frame, "卫星G/T值 (dB/K):", "satellite_gt_label")
-            self.terminal_gt_label = None
-        elif link_type == "星-地下行" or link_type == "地-地下行":
+            self._create_gt_label(gt_frame, "卫星G/T值 (dB/K):", "satellite_gt_label") # 创建卫星G/T值显示框
+            self.terminal_gt_label = None  # 隐藏终端G/T值显示框
+            self.bs_gt_label = None  # 隐藏基站G/T值显示框
+        elif link_type == "地-地上行":
+            self._create_gt_label(gt_frame, "基站G/T值 (dB/K):", "bs_gt_label") # 创建基站G/T值显示框
+            self.terminal_gt_label = None  # 隐藏终端G/T值显示框
+            self.satellite_gt_label = None  # 隐藏卫星G/T值显示框
+        else: # 星-地下行、地-地下行
+            self.satellite_gt_label = None  # 隐藏卫星G/T值显示框
             self._create_gt_label(gt_frame, "终端G/T值 (dB/K):", "terminal_gt_label")
-            self.satellite_gt_label = None
-        else: # 地对地场景
-            self._create_gt_label(gt_frame, "基站G/T值 (dB/K):", "bs_gt_label")
-            self.bs_gt_label = None
+            self.bs_gt_label = None  # 隐藏基站G/T值显示框
 
     def _create_gt_label(self, parent, text, attr_name):
         """创建G/T值标签"""
@@ -687,88 +683,83 @@ class SatelliteLinkBudgetCalculator:
         """获取输入参数"""
         self.input_handler.trigger_all_focus_out()
 
-        # 获取公共输入参数
-        input_params = {
-            "frequency": self.input_handler.get_numeric_value("frequency"),  # GHz,
-            "bandwidth": self.input_handler.get_numeric_value("bandwidth"),  # MHz,
-            "satellite_scan_angle": self.input_handler.get_numeric_value("satellite_scan_angle"),  # 度,
-            "satellite_height": self.input_handler.get_numeric_value("satellite_height"),  # km,
+        if self.link_type_var.get() == "星-地上行" or self.link_type_var.get() == "星-地下行":
+            # 获取公共输入参数
+            input_params = {
+                "frequency": self.input_handler.get_numeric_value("frequency"),  # GHz,
+                "bandwidth": self.input_handler.get_numeric_value("bandwidth"),  # MHz,
+                "satellite_scan_angle": self.input_handler.get_numeric_value("satellite_scan_angle"),  # 度,
+                "satellite_height": self.input_handler.get_numeric_value("satellite_height"),  # km,
+                
+                "atmospheric_loss": self.input_handler.get_numeric_value("atmospheric_loss") if self.input_handler.flags["atmospheric_loss"].get() else 0,
+                "scintillation_loss": self.input_handler.get_numeric_value("scintillation_loss") if self.input_handler.flags["scintillation_loss"].get() else 0,
+                "polarization_loss": self.input_handler.get_numeric_value("polarization_loss") if self.input_handler.flags["polarization_loss"].get() else 0,
+                
+                "rain_rate": self.input_handler.get_numeric_value("rain_rate") if self.input_handler.flags["rain_rate"].get() else 0,
+                "link_margin": self.input_handler.get_numeric_value("link_margin") if self.input_handler.flags["link_margin"].get() else 0,
+                "beam_edge_loss": self.input_handler.get_numeric_value("beam_edge_loss") if self.input_handler.flags["beam_edge_loss"].get() else 0,
+                "scan_loss": self.input_handler.get_numeric_value("scan_loss") if self.input_handler.flags["scan_loss"].get() else 0,
             
-            "atmospheric_loss": self.input_handler.get_numeric_value("atmospheric_loss") if self.input_handler.flags["atmospheric_loss"].get() else 0,
-            "scintillation_loss": self.input_handler.get_numeric_value("scintillation_loss") if self.input_handler.flags["scintillation_loss"].get() else 0,
-            "polarization_loss": self.input_handler.get_numeric_value("polarization_loss") if self.input_handler.flags["polarization_loss"].get() else 0,
-            
-            "rain_rate": self.input_handler.get_numeric_value("rain_rate") if self.input_handler.flags["rain_rate"].get() else 0,
-            "link_margin": self.input_handler.get_numeric_value("link_margin") if self.input_handler.flags["link_margin"].get() else 0,
-            "beam_edge_loss": self.input_handler.get_numeric_value("beam_edge_loss") if self.input_handler.flags["beam_edge_loss"].get() else 0,
-            "scan_loss": self.input_handler.get_numeric_value("scan_loss") if self.input_handler.flags["scan_loss"].get() else 0,
-        
-            "interference_psd": self.input_handler.get_numeric_value("interference_psd") if self.input_handler.flags["interference_psd"].get() else -math.inf,  # 新增干扰参数
-        }
+                "interference_psd": self.input_handler.get_numeric_value("interference_psd") if self.input_handler.flags["interference_psd"].get() else -math.inf,  # 新增干扰参数
 
-        # 获取收发端参数
-        if self.link_type_var.get() == "星-地上行": # 星-地上行链路
-            # 发端参数：终端
-            input_params["tx_eirp"] = self.input_handler.get_numeric_value("terminal_eirp")  # dBW
-            # 收端参数：卫星
-            input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("satellite_antenna_gain")  # dBi
-            input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("satellite_noise_temp")
-            input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("satellite_noise_figure")
-        else: # 星-地下行链路
-            # 发端参数：卫星
-            input_params["tx_eirp"] = self.input_handler.get_numeric_value("satellite_eirp")  # dBW
-            # 收端参数：终端
-            input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("terminal_antenna_gain")  # dBi
-            input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("terminal_noise_temp")
-            input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("terminal_noise_figure")
+                # "distance": self.input_handler.get_numeric_value("distance") if self.input_handler.flags["distance"].get() else 0,  # km, 收发端2d距离 km
+            }
+
+            # 获取收发端参数
+            if self.link_type_var.get() == "星-地上行": # 星-地上行链路
+                # 发端参数：终端
+                input_params["tx_eirp"] = self.input_handler.get_numeric_value("terminal_eirp")  # dBW
+                # 收端参数：卫星
+                input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("satellite_antenna_gain")  # dBi
+                input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("satellite_noise_temp")
+                input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("satellite_noise_figure")
+            elif self.link_type_var.get() == "星-地下行": # 星-地下行链路
+                # 发端参数：卫星
+                input_params["tx_eirp"] = self.input_handler.get_numeric_value("satellite_eirp")  # dBW
+                # 收端参数：终端
+                input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("terminal_antenna_gain")  # dBi
+                input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("terminal_noise_temp")
+                input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("terminal_noise_figure")
+        
+        else: # 地对地场景
+            # 获取公共输入参数
+            input_params = {
+                "frequency": self.input_handler.get_numeric_value("frequency"),  # GHz,
+                "bandwidth": self.input_handler.get_numeric_value("bandwidth"),  # MHz,
+                "distance": self.input_handler.get_numeric_value("distance"),  # km, 收发端2d距离 km
+
+                "link_margin": self.input_handler.get_numeric_value("link_margin") if self.input_handler.flags["link_margin"].get() else 0,
+                "beam_edge_loss": self.input_handler.get_numeric_value("beam_edge_loss") if self.input_handler.flags["beam_edge_loss"].get() else 0,
+            
+                "interference_psd": self.input_handler.get_numeric_value("interference_psd") if self.input_handler.flags["interference_psd"].get() else -math.inf,  # 新增干扰参数
+            }
+
+            # 获取收发端参数
+            if self.link_type_var.get() == "地-地上行": # 地-地上行链路
+                # 发端参数：终端
+                input_params["tx_eirp"] = self.input_handler.get_numeric_value("terminal_eirp")  # dBW
+                # 收端参数：基站
+                input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("bs_antenna_gain")  # dBi
+                input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("bs_noise_temp")
+                input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("bs_noise_figure")
+            elif self.link_type_var.get() == "地-地下行": # 星-地下行链路
+                # 发端参数：基站
+                input_params["tx_eirp"] = self.input_handler.get_numeric_value("bs_eirp")  # dBW
+                # 收端参数：终端
+                input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("terminal_antenna_gain")  # dBi
+                input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("terminal_noise_temp")
+                input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("terminal_noise_figure")
 
         return input_params
 
     def calculate(self):
         try:
             self.status_var.set("正在计算...")
-            self.input_handler.trigger_all_focus_out()
+            input_params = self._get_input_params()
 
+            calculator = LinkCalculator()
             if self.link_type_var.get() == "星-地上行" or self.link_type_var.get() == "星-地下行":
-                # 获取公共输入参数
-                input_params = {
-                    "frequency": self.input_handler.get_numeric_value("frequency"),  # GHz,
-                    "bandwidth": self.input_handler.get_numeric_value("bandwidth"),  # MHz,
-                    "satellite_scan_angle": self.input_handler.get_numeric_value("satellite_scan_angle"),  # 度,
-                    "satellite_height": self.input_handler.get_numeric_value("satellite_height"),  # km,
-                    
-                    "atmospheric_loss": self.input_handler.get_numeric_value("atmospheric_loss") if self.input_handler.flags["atmospheric_loss"].get() else 0,
-                    "scintillation_loss": self.input_handler.get_numeric_value("scintillation_loss") if self.input_handler.flags["scintillation_loss"].get() else 0,
-                    "polarization_loss": self.input_handler.get_numeric_value("polarization_loss") if self.input_handler.flags["polarization_loss"].get() else 0,
-                    
-                    "rain_rate": self.input_handler.get_numeric_value("rain_rate") if self.input_handler.flags["rain_rate"].get() else 0,
-                    "link_margin": self.input_handler.get_numeric_value("link_margin") if self.input_handler.flags["link_margin"].get() else 0,
-                    "beam_edge_loss": self.input_handler.get_numeric_value("beam_edge_loss") if self.input_handler.flags["beam_edge_loss"].get() else 0,
-                    "scan_loss": self.input_handler.get_numeric_value("scan_loss") if self.input_handler.flags["scan_loss"].get() else 0,
-                
-                    "interference_psd": self.input_handler.get_numeric_value("interference_psd") if self.input_handler.flags["interference_psd"].get() else -math.inf,  # 新增干扰参数
-
-                    # "distance": self.input_handler.get_numeric_value("distance") if self.input_handler.flags["distance"].get() else 0,  # km, 收发端2d距离 km
-                }
-
-                # 获取收发端参数
-                if self.link_type_var.get() == "星-地上行": # 星-地上行链路
-                    # 发端参数：终端
-                    input_params["tx_eirp"] = self.input_handler.get_numeric_value("terminal_eirp")  # dBW
-                    # 收端参数：卫星
-                    input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("satellite_antenna_gain")  # dBi
-                    input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("satellite_noise_temp")
-                    input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("satellite_noise_figure")
-                elif self.link_type_var.get() == "星-地下行": # 星-地下行链路
-                    # 发端参数：卫星
-                    input_params["tx_eirp"] = self.input_handler.get_numeric_value("satellite_eirp")  # dBW
-                    # 收端参数：终端
-                    input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("terminal_antenna_gain")  # dBi
-                    input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("terminal_noise_temp")
-                    input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("terminal_noise_figure")
-
                 # 执行计算 
-                calculator = LinkCalculator()
                 self.results_temp = calculator.perform_calculations_sat(input_params)  # 将结果保存为类属性
 
                 results = {
@@ -786,36 +777,7 @@ class SatelliteLinkBudgetCalculator:
                     ],
                 }
             else: # 地对地场景
-                # 获取公共输入参数
-                input_params = {
-                    "frequency": self.input_handler.get_numeric_value("frequency"),  # GHz,
-                    "bandwidth": self.input_handler.get_numeric_value("bandwidth"),  # MHz,
-                    "distance": self.input_handler.get_numeric_value("distance"),  # km, 收发端2d距离 km
-
-                    "link_margin": self.input_handler.get_numeric_value("link_margin") if self.input_handler.flags["link_margin"].get() else 0,
-                    "beam_edge_loss": self.input_handler.get_numeric_value("beam_edge_loss") if self.input_handler.flags["beam_edge_loss"].get() else 0,
-                
-                    "interference_psd": self.input_handler.get_numeric_value("interference_psd") if self.input_handler.flags["interference_psd"].get() else -math.inf,  # 新增干扰参数
-                }
-
-                # 获取收发端参数
-                if self.link_type_var.get() == "地-地上行": # 地-地上行链路
-                    # 发端参数：终端
-                    input_params["tx_eirp"] = self.input_handler.get_numeric_value("terminal_eirp")  # dBW
-                    # 收端参数：基站
-                    input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("bs_antenna_gain")  # dBi
-                    input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("bs_noise_temp")
-                    input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("bs_noise_figure")
-                elif self.link_type_var.get() == "地-地下行": # 星-地下行链路
-                    # 发端参数：基站
-                    input_params["tx_eirp"] = self.input_handler.get_numeric_value("bs_eirp")  # dBW
-                    # 收端参数：终端
-                    input_params["rx_antenna_gain"] = self.input_handler.get_numeric_value("terminal_antenna_gain")  # dBi
-                    input_params["rx_noise_temp"] = self.input_handler.get_numeric_value("terminal_noise_temp")
-                    input_params["rx_noise_figure"] = self.input_handler.get_numeric_value("terminal_noise_figure")
-
                 # 执行计算 
-                calculator = LinkCalculator()
                 self.results_temp = calculator.perform_calculations_terrestrial(input_params)  # 将结果保存为类属性
 
                 results = {
@@ -830,13 +792,12 @@ class SatelliteLinkBudgetCalculator:
                     ],
                 }
 
-
             # 更新G/T值显示框
             if self.link_type_var.get() == "星-地上行" and self.satellite_gt_label is not None:
                 self.satellite_gt_label.configure(text=format_result(self.results_temp["gt_ratio"]))
             elif self.link_type_var.get() in ["星-地下行", "地-地下行"] and self.terminal_gt_label is not None:
                 self.terminal_gt_label.configure(text=format_result(self.results_temp["gt_ratio"]))
-            elif self.link_type_var.get() =="地-地上行" and self.terminal_gt_label is not None:
+            elif self.link_type_var.get() =="地-地上行" and self.bs_gt_label is not None:
                 self.bs_gt_label.configure(text=format_result(self.results_temp["gt_ratio"]))
 
             if self.link_type_var.get() == "星-地上行": # 星-地上行链路
