@@ -31,7 +31,7 @@ class InputHandler:
 
     def create_input_form(self, parent):
         title_label = ctk.CTkLabel(
-            parent, text="输入参数 (支持公式如sin, cos, tan, log, 幂(^))",
+            parent, text="输入参数 (支持公式如sin, cos, tan, log, 幂(**))",
             font=("微软雅黑", 14, "bold")
         )
         title_label.pack(pady=(5, 10))

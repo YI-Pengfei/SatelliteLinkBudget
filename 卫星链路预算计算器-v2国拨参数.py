@@ -88,7 +88,7 @@ class SatelliteLinkBudgetCalculator:
             ("重置", self.reset, "#6B7280", 100),
             ("输出计算报告", self.generate_report, "#36B37E", 120),
             ("详细计算公式", self.show_detailed_calculation, "#36B37E", 120),  # 新增按钮
-            ("单位转换器", self.show_unit_converter, "#FFA500", 120),  # 新增按钮
+            # ("单位转换器", self.show_unit_converter, "#FFA500", 120),  # 新增按钮
         ]
         for text, command, color, width in buttons:
             button = ctk.CTkButton(
@@ -124,7 +124,7 @@ class SatelliteLinkBudgetCalculator:
 
     def _create_status_bar(self):
         """创建状态栏"""
-        self.status_var = tk.StringVar(value="支持公式化输入，例如：sin(30)、arctan(1)、53-10*log(16)")
+        self.status_var = tk.StringVar(value="支持公式化输入，例如：53-10*log(16), 2*10**(3/10)")
         self.status_bar = ctk.CTkLabel(
             self.main_frame, textvariable=self.status_var,
             font=STATUS_BAR_FONT, fg_color=STATUS_BAR_BG_COLOR, text_color=STATUS_BAR_TEXT_COLOR
@@ -148,8 +148,8 @@ class SatelliteLinkBudgetCalculator:
         if link_type in ["星-地下行", "星-地上行"]:
             common_params = {
                 "frequency": "1.71" if link_type == "星-地上行" else "1.81",
-                "bandwidth": "0.72" if link_type == "星-地上行" else "5",
-                "satellite_height": "400",
+                "bandwidth": "5" if link_type == "星-地上行" else "5",
+                "satellite_height": "515",
                 "satellite_scan_angle": "0",
                 "atmospheric_loss": "0.1",
                 "scintillation_loss": "0.3",
@@ -162,30 +162,30 @@ class SatelliteLinkBudgetCalculator:
             }
             specific_params = {
                 "星-地上行": {
-                    "terminal_eirp": "23-30-5",
-                    "satellite_antenna_gain": "30.72",
+                    "terminal_eirp": "23-30-3",
+                    "satellite_antenna_gain": "35.2",
                     "satellite_noise_figure": "2.4",
                     "satellite_noise_temp": "290",
                 },
                 "星-地下行": {
-                    "satellite_eirp": "56",
-                    "terminal_noise_figure": "7",
+                    "satellite_eirp": "48.2",
+                    "terminal_noise_figure": "9",
                     "terminal_noise_temp": "290",
-                    "terminal_antenna_gain": "-5",
+                    "terminal_antenna_gain": "-3",
                 }
             }
             return {**common_params, **specific_params[link_type]}
         else: # 地对地场景的输入参数
             common_params = {
                 "frequency": "1.71" if link_type == "地-地上行" else "1.81",
-                "bandwidth": "0.72" if link_type == "地-地上行" else "5",
+                "bandwidth": "5" if link_type == "地-地上行" else "5",
                 "distance": "1", # 收发端2d距离 km
                 "beam_edge_loss": "1",
                 "interference_psd": "-inf"
             }
             specific_params = {
                 "地-地上行": {
-                    "terminal_eirp": "23-30-5",
+                    "terminal_eirp": "23-30-3",
                     "bs_antenna_gain": "30.72",
                     "bs_noise_figure": "2.4",
                     "bs_noise_temp": "290",
@@ -194,7 +194,7 @@ class SatelliteLinkBudgetCalculator:
                     "bs_eirp": "46+30+22.5",  # dBW 基站EIRP=发射功率(dBm)+天线增益(dBi)+30
                     "terminal_noise_figure": "7",
                     "terminal_noise_temp": "290",
-                    "terminal_antenna_gain": "-5",
+                    "terminal_antenna_gain": "-3",
                 }
             }
             return {**common_params, **specific_params[link_type]} 
