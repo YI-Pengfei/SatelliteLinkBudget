@@ -40,7 +40,9 @@ class SatelliteLinkBudgetCalculator:
         self.root = root
         self.root.title("卫星链路预算计算器")
         self.root.geometry("1024x768")  # 设置默认窗口尺寸
+        self.gt_label = None  # 用于显示G/T值的标签
         self._init_ui()
+        
 
     def _init_ui(self):
         """初始化用户界面"""
@@ -48,7 +50,6 @@ class SatelliteLinkBudgetCalculator:
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         self._create_link_type_selector()
-        self._init_gt_labels()
         self._create_toolbar()
         self._create_content_frames()
         self._create_status_bar()
@@ -67,11 +68,33 @@ class SatelliteLinkBudgetCalculator:
         )
         link_type_optionmenu.pack(pady=(0, 5))
 
-    def _init_gt_labels(self):
-        """初始化G/T值显示框"""
-        self.satellite_gt_label = None
-        self.terminal_gt_label = None
-        self.bs_gt_label = None
+    def _setup_gt_display(self, link_type):
+        """设置动态G/T值显示框"""
+        # 定义不同链路类型的显示配置
+        gt_config = {
+            "星-地上行": "卫星G/T值 (dB/K):",
+            "星-地下行": "终端G/T值 (dB/K):",
+            "地-地上行": "基站G/T值 (dB/K):",
+            "地-地下行": "终端G/T值 (dB/K):"
+        }
+        
+        # 清除旧标签
+        if hasattr(self, 'gt_label') and self.gt_label:
+            self.gt_label.destroy()
+        
+        # 创建新标签组件
+        gt_frame = self.input_handler.gt_frame
+        ctk.CTkLabel(gt_frame, 
+                    text=gt_config.get(link_type, "G/T值:"), 
+                    width=180, 
+                    anchor="w").pack(side=tk.LEFT, padx=5)
+        
+        self.gt_label = ctk.CTkLabel(gt_frame, 
+                                   text="0.00", 
+                                   width=120, 
+                                   anchor="e")
+        self.gt_label.pack(side=tk.RIGHT, padx=5)
+
 
     def _create_toolbar(self):
         """创建工具栏"""
@@ -175,28 +198,6 @@ class SatelliteLinkBudgetCalculator:
         self.input_handler = InputHandler(self.input_frame, params, self)  # 添加self作为
         self.input_handler.create_input_form(self.input_frame)
 
-    def _setup_gt_display(self, link_type):
-        """设置G/T值显示框"""
-        gt_frame = self.input_handler.gt_frame
-        if link_type == "星-地上行":
-            self._create_gt_label(gt_frame, "卫星G/T值 (dB/K):", "satellite_gt_label") # 创建卫星G/T值显示框
-            self.terminal_gt_label = None  # 隐藏终端G/T值显示框
-            self.bs_gt_label = None  # 隐藏基站G/T值显示框
-        elif link_type == "地-地上行":
-            self._create_gt_label(gt_frame, "基站G/T值 (dB/K):", "bs_gt_label") # 创建基站G/T值显示框
-            self.terminal_gt_label = None  # 隐藏终端G/T值显示框
-            self.satellite_gt_label = None  # 隐藏卫星G/T值显示框
-        else: # 星-地下行、地-地下行
-            self.satellite_gt_label = None  # 隐藏卫星G/T值显示框
-            self._create_gt_label(gt_frame, "终端G/T值 (dB/K):", "terminal_gt_label")
-            self.bs_gt_label = None  # 隐藏基站G/T值显示框
-
-    def _create_gt_label(self, parent, text, attr_name):
-        """创建G/T值标签"""
-        ctk.CTkLabel(parent, text=text, width=180, anchor="w").pack(side=tk.LEFT, padx=5)
-        label = ctk.CTkLabel(parent, text="0.00", width=120, anchor="e")
-        label.pack(side=tk.RIGHT, padx=5)
-        setattr(self, attr_name, label)
 
     def _get_input_params(self):
         """获取输入参数（完整版）"""
@@ -289,13 +290,9 @@ class SatelliteLinkBudgetCalculator:
                     ],
                 }
 
-            # 更新G/T值显示框
-            if self.link_type_var.get() == "星-地上行" and self.satellite_gt_label is not None:
-                self.satellite_gt_label.configure(text=format_result(self.results_temp["gt_ratio"]))
-            elif self.link_type_var.get() in ["星-地下行", "地-地下行"] and self.terminal_gt_label is not None:
-                self.terminal_gt_label.configure(text=format_result(self.results_temp["gt_ratio"]))
-            elif self.link_type_var.get() =="地-地上行" and self.bs_gt_label is not None:
-                self.bs_gt_label.configure(text=format_result(self.results_temp["gt_ratio"]))
+            # 更新G/T值显示
+            if self.gt_label and "gt_ratio" in self.results_temp:
+                self.gt_label.configure(text=format_result(self.results_temp["gt_ratio"]))
 
             if self.link_type_var.get() == "星-地上行": # 星-地上行链路
                 results["链路性能"].append(("卫星G/T值", self.results_temp["gt_ratio"], "dB/K"))
@@ -310,10 +307,16 @@ class SatelliteLinkBudgetCalculator:
             messagebox.showerror("计算错误", f"计算过程中出现错误: {str(e)}")
             self.status_var.set("计算失败，请检查输入")
 
-
     def reset(self):
         self.input_handler.reset_params()
-        self.status_var.set("支持公式化输入，例如：sin(30)、arctan(1)、53-10*log(16)")
+        # 清空G/T值显示
+        if hasattr(self, 'gt_label') and self.gt_label:
+            self.gt_label.configure(text="0.00")
+        # 强制清空结果区域
+        self.result_display.clear_results()
+        # 刷新界面
+        self.result_frame.update_idletasks()
+        self.status_var.set("所有参数和结果已重置")
 
     def generate_report(self):
         try:

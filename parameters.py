@@ -118,8 +118,8 @@ PARAM_GROUP_NAMES = {
         "tx_params": "终端参数",
         "rx_params": "卫星参数"
     },
-    "地-地下行": {
-        "tx_params": "基站参数",
-        "rx_params": "终端参数"
+    "地-地上行": {
+        "tx_params": "终端参数",
+        "rx_params": "基站参数"
     }
 }

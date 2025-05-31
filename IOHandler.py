@@ -29,6 +29,7 @@ class InputHandler:
         }
         self.defaults = {p: v.get() for p, v in self.params.items()}
         self.entries = {}
+        self.raw_formulas = {}  # 存储原始公式
 
     def create_input_form(self, parent):
         # 创建标题和滚动区域
@@ -251,30 +252,52 @@ class InputHandler:
             return float(result) if result is not None else 0
 
     def reset_params(self):
-        for param, value in self.defaults.items():
-            self.params[param].set(value)
-            self.raw_formulas[param] = ""
+        """重置所有参数输入和标志位状态"""
+        # 获取当前链路类型配置
+        link_type = self.main_app.link_type_var.get()
+        config = PARAM_GROUPS[link_type]
+        base_config = PARAM_GROUPS[config["base"]]
 
-        for flag_key, flag_var in self.flags.items():
-            if flag_key == "link_margin":
-                flag_var.set(True)
-            else:
-                flag_var.set(False)
+        # 合并所有参数组
+        all_params = (
+            base_config["common"] +
+            config["tx_params"] +
+            config["rx_params"] +
+            base_config["optional"]
+        )
 
-        for param, flag_key in {
-            "atmospheric_loss": "atmospheric_loss",
-            "scintillation_loss": "scintillation_loss",
-            "polarization_loss": "polarization_loss",
-            "rain_rate": "rain_rate",
-            "beam_edge_loss": "beam_edge_loss",
-            "scan_loss": "scan_loss",
-            "link_margin": "link_margin",
-            "interference_psd": "interference_psd",
-        }.items():
-            if param in self.entries:
-                self.entries[param].configure(
-                    state="normal" if self.flags[flag_key].get() else "disabled"
-                )
+        # 重置参数值
+        for param in all_params:
+            if param in self.params:
+                self.params[param].set(self.defaults.get(param, ""))
+                self.raw_formulas[param] = ""
+
+        # 重置标志位
+        self.flags["atmospheric_loss"].set(True)
+        self.flags["scintillation_loss"].set(True)
+        self.flags["polarization_loss"].set(True)
+        self.flags["link_margin"].set(True)
+        self.flags["rain_rate"].set(False)
+        self.flags["beam_edge_loss"].set(False)
+        self.flags["scan_loss"].set(False)
+        self.flags["interference_psd"].set(False)
+
+        # 重置地面场景选择器
+        if hasattr(self, 'scenario_var'):
+            self.scenario_var.set('城市宏蜂窝UMa')
+            self.los_var.set('LoS')
+
+        # 更新输入框状态
+        for param, entry in self.entries.items():
+            flag_key = {
+                "atmospheric_loss": "atmospheric_loss",
+                "scintillation_loss": "scintillation_loss",
+                "polarization_loss": "polarization_loss",
+                "link_margin": "link_margin"
+            }.get(param, None)
+            if flag_key:
+                entry.configure(state="normal" if self.flags[flag_key].get() else "disabled")
+
 
     def trigger_all_focus_out(self):
         for entry in self.entries.values():
@@ -378,3 +401,11 @@ class ResultDisplay:
     
         # 强制刷新界面
         self.result_scrollable_frame._parent_canvas.yview_moveto(0)
+
+    def clear_results(self):
+        """清空所有结果标签内容"""
+        if hasattr(self, 'result_labels'):
+            for section in self.result_labels.values():
+                for label_info in section:
+                    label_info[0].configure(text="")  # 清空结果标签内容
+                    label_info[1].configure(text="")  # 清空单位标签内容
