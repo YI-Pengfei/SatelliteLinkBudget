@@ -9,13 +9,14 @@ IOHandler.py
 import tkinter as tk
 import customtkinter as ctk
 from SafeMath import safe_eval, format_result
+from parameters import PARAM_MAPPING, PARAM_GROUPS, PARAM_GROUP_NAMES
 
 # 输入处理类
 class InputHandler:
-    def __init__(self, parent, default_params):
+    def __init__(self, parent, default_params, main_app):  # 新增main_app参数
         self.parent = parent
+        self.main_app = main_app  # 保存主应用引用
         self.params = {param: tk.StringVar(value=value) for param, value in default_params.items()}
-        self.raw_formulas = {param: "" for param in self.params}
         self.flags = {
             "atmospheric_loss": tk.BooleanVar(value=True),
             "scintillation_loss": tk.BooleanVar(value=True),
@@ -30,6 +31,7 @@ class InputHandler:
         self.entries = {}
 
     def create_input_form(self, parent):
+        # 创建标题和滚动区域
         title_label = ctk.CTkLabel(
             parent, text="输入参数 (支持公式如sin, cos, tan, log, 幂(**))",
             font=("微软雅黑", 14, "bold")
@@ -38,148 +40,89 @@ class InputHandler:
 
         scrollable_frame = ctk.CTkScrollableFrame(parent)
         scrollable_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        scrollable_frame.grid_columnconfigure(0, weight=1)  # 添加列配置
+        scrollable_frame.grid_columnconfigure(0, weight=1)
 
         group_title_font = ("微软雅黑", 12, "bold")
         group_title_color = "#165DFF"
 
-        # 第一组：频率和带宽
-        self.create_group_title(scrollable_frame, "1. 信号参数", group_title_font, group_title_color)
-        param_labels = [
-            ("frequency", "频率 (GHz):"),
-            ("bandwidth", "带宽 (MHz):"),
-        ]
-        if 'bs_eirp' in self.params or 'bs_noise_figure' in self.params:
-            param_labels.extend([
-                ("distance", "距离 (km):"),
-            ])
-        self.create_param_entries(scrollable_frame, param_labels, compact=True)
+        # 从parameters.py获取配置
+        link_type = self.main_app.link_type_var.get()  # 通过主应用直接获取
+        config = PARAM_GROUPS[link_type]
+        base_config = PARAM_GROUPS[config["base"]]
 
-        # 分隔线
-        self.create_separator(scrollable_frame)
+        # 合并所有参数组
+        merged_groups = {
+            "common": base_config["common"],
+            "tx_params": config["tx_params"],
+            "rx_params": config["rx_params"],
+            "optional": base_config["optional"]
+        }
 
-        if 'satellite_height' in self.params:
-            # Option1: 星地   第二组：卫星参数
-            satellite_params = [
-                ("satellite_height", "卫星高度 (km):"),
-                ("satellite_scan_angle", "卫星扫描角 (°):")
+        # 动态生成参数组
+        group_index = 1
+        for group_type, params in merged_groups.items():
+            if not params:
+                continue
+
+            # 获取分组标题
+            group_title = PARAM_GROUP_NAMES[config["base"]].get(group_type, "")
+            if link_type in PARAM_GROUP_NAMES and group_type in PARAM_GROUP_NAMES[link_type]:
+                group_title = PARAM_GROUP_NAMES[link_type][group_type]
+
+            self.create_group_title(
+                scrollable_frame,
+                f"{group_index}. {group_title}",
+                group_title_font, group_title_color
+            )
+
+            # 生成参数输入项
+            param_labels = [
+                (param, f"{PARAM_MAPPING[param]['ch_name']} ({PARAM_MAPPING[param]['unit']}):") 
+                for param in params if param in self.params
             ]
-            if 'satellite_antenna_gain' in self.params:
-                satellite_params.extend([
-                    ("satellite_antenna_gain", "卫星天线增益 (dBi):"),
-                    ("satellite_noise_figure", "卫星噪声系数 (dB):"),
-                    ("satellite_noise_temp", "卫星天线噪声温度 (K):"),
-                ])
-            if 'satellite_eirp' in self.params:
-                satellite_params.append(("satellite_eirp", "卫星EIRP (dBW):"))
-            self.create_group_title(scrollable_frame, "2. 卫星参数", group_title_font, group_title_color)
-            self.create_param_entries(scrollable_frame, satellite_params, compact=True)
-
-            # 添加卫星G/T值显示框
-            if 'satellite_antenna_gain' in self.params:
-                self.gt_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
-                self.gt_frame.pack(fill=tk.X, padx=5, pady=(10, 5))
-        else:
-            # Option2： 地地   第二组2：地面基站参数
-            bs_params = [
-            ]
-            if 'bs_eirp' in self.params:
-                bs_params.append(("bs_eirp", "基站EIRP (dBW):"))
-            if 'bs_noise_figure' in self.params:
-                bs_params.extend([
-                    ("bs_noise_figure", "基站噪声系数 (dB):"),
-                    ("bs_noise_temp", "基站天线噪声温度 (K):"),
-                    ("bs_antenna_gain", "基站天线增益 (dBi):"),
-                ])
-            self.create_group_title(scrollable_frame, "2. 基站参数", group_title_font, group_title_color)
-            self.create_param_entries(scrollable_frame, bs_params, compact=True)
-
-            # 添加基站G/T值显示框
-            if 'bs_noise_figure' in self.params:
+            
+            has_checkboxes = group_type == "optional"
+            self.create_param_entries(
+                scrollable_frame, 
+                param_labels,
+                compact=True,
+                has_checkboxes=has_checkboxes
+            )
+            
+            if group_type=='rx_params':
                 self.gt_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
                 self.gt_frame.pack(fill=tk.X, padx=5, pady=(10, 5))
 
-        # 分隔线
-        self.create_separator(scrollable_frame)
-
-        # 第三组：终端参数
-        terminal_params = [
-        ]
-        if 'terminal_eirp' in self.params:
-            terminal_params.append(("terminal_eirp", "终端EIRP (dBW):"))
-        if 'terminal_noise_figure' in self.params:
-            terminal_params.extend([
-                ("terminal_noise_figure", "终端噪声系数 (dB):"),
-                ("terminal_noise_temp", "终端天线噪声温度 (K):"),
-                ("terminal_antenna_gain", "终端天线增益 (dBi):"),
-            ])
-        self.create_group_title(scrollable_frame, "3. 终端参数", group_title_font, group_title_color)
-        self.create_param_entries(scrollable_frame, terminal_params, compact=True)
-
-        # 添加终端G/T值显示框
-        if 'terminal_antenna_gain' in self.params:
-            self.gt_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
-            self.gt_frame.pack(fill=tk.X, padx=5, pady=(10, 5))
-
-        # 分隔线
-        self.create_separator(scrollable_frame)
-
-        # 第四组：损耗参数
-        self.create_group_title(scrollable_frame, "4. 损耗参数", group_title_font, group_title_color)
-        if 'satellite_height' in self.params:
-            # Option1: 星地
-            param_labels = [
-                ("atmospheric_loss", "大气损耗 (dB):"),
-                ("scintillation_loss", "闪烁损耗 (dB):"),
-                ("polarization_loss", "极化损耗 (dB):"),
-                ("beam_edge_loss", "波束边缘损耗 (dB):"),
-                ("scan_loss", "扫描损耗 (dB):"),
-                ("rain_rate", "降雨率 (mm/h):"),
-            ]
-        else:
-            # Option2： 地地
-            param_labels = [
-                ("beam_edge_loss", "波束边缘损耗 (dB):"),
-            ]
-
-        self.create_param_entries(scrollable_frame, param_labels, compact=True, has_checkboxes=True)
-
-        # 分隔线
-        self.create_separator(scrollable_frame)
-
-        if 'satellite_height' in self.params:
-            # 第五组：链路余量
-            self.create_group_title(scrollable_frame, "5. 链路余量", group_title_font, group_title_color)
-            param_labels = [
-                ("link_margin", "链路余量 (dB):"),
-            ]
-            self.create_param_entries(scrollable_frame, param_labels, compact=True, has_checkboxes=True)
-            # 分隔线
             self.create_separator(scrollable_frame)
-        else:
-            group5_frame = ctk.CTkFrame(self.parent)
-            group5_frame.pack(pady=10, fill=tk.X)
-            # 新增场景选择控件
-            scenario_frame = ctk.CTkFrame(group5_frame)
-            scenario_frame.pack(pady=5, fill=tk.X)
-            # 场景类型选择
-            ctk.CTkLabel(scenario_frame, text="地面场景:").grid(row=0, column=0, padx=5)
-            self.scenario_var = tk.StringVar(value='城市宏蜂窝UMa')
-            ctk.CTkRadioButton(scenario_frame, text="城市宏蜂窝UMa", variable=self.scenario_var, value='城市宏蜂窝UMa').grid(row=0, column=1)
-            ctk.CTkRadioButton(scenario_frame, text="农村宏蜂窝RMa", variable=self.scenario_var, value='农村宏蜂窝RMa').grid(row=0, column=2)
+            group_index += 1
 
-            # 传播条件选择
-            ctk.CTkLabel(scenario_frame, text="链路状态:").grid(row=1, column=0, padx=5, pady=(10,0))
-            self.los_var = tk.StringVar(value='LoS')
-            ctk.CTkRadioButton(scenario_frame, text="LoS", variable=self.los_var, value='LoS').grid(row=1, column=1, pady=(10,0))
-            ctk.CTkRadioButton(scenario_frame, text="NLoS", variable=self.los_var, value='NLoS').grid(row=1, column=2, pady=(10,0))
+        # 特殊处理地面链路场景选择
+        if config["base"] == "base_terrestrial":
+            self._create_terrestrial_scenario_selector(scrollable_frame)
 
-        # 第六组：干扰
-        self.create_group_title(scrollable_frame, "6. 干扰", group_title_font, group_title_color)
-        param_labels = [
-            ("interference_psd", "干扰信号功率谱密度 (dBm/MHz):"),
-        ]
-        self.create_param_entries(scrollable_frame, param_labels, compact=True, has_checkboxes=True)
+        # 强制刷新界面
+        scrollable_frame._parent_canvas.yview_moveto(0)
+
+    def _create_terrestrial_scenario_selector(self, parent):
+        # 地面场景选择器
+        scenario_frame = ctk.CTkFrame(parent)
+        scenario_frame.pack(pady=10, fill=tk.X)
+
+        # 场景类型
+        ctk.CTkLabel(scenario_frame, text="地面场景:").grid(row=0, column=0, padx=5)
+        self.scenario_var = tk.StringVar(value='城市宏蜂窝UMa')
+        ctk.CTkRadioButton(scenario_frame, text="城市宏蜂窝UMa", variable=self.scenario_var, 
+                         value='城市宏蜂窝UMa').grid(row=0, column=1)
+        ctk.CTkRadioButton(scenario_frame, text="农村宏蜂窝RMa", variable=self.scenario_var,
+                         value='农村宏蜂窝RMa').grid(row=0, column=2)
+
+        # 传播条件
+        ctk.CTkLabel(scenario_frame, text="链路状态:").grid(row=1, column=0, padx=5, pady=(10,0))
+        self.los_var = tk.StringVar(value='LoS')
+        ctk.CTkRadioButton(scenario_frame, text="LoS", variable=self.los_var, 
+                         value='LoS').grid(row=1, column=1, pady=(10,0))
+        ctk.CTkRadioButton(scenario_frame, text="NLoS", variable=self.los_var,
+                         value='NLoS').grid(row=1, column=2, pady=(10,0))
 
     def create_group_title(self, parent, title, font, color):
         title_label = ctk.CTkLabel(
@@ -279,6 +222,25 @@ class InputHandler:
     def toggle_entry_state(self, param, flag_var):
         entry = self.entries[param]
         entry.configure(state="normal" if flag_var.get() else "disabled")
+
+    def get_numeric_value2(self, param, default=0):
+        """获取数值（支持公式计算）"""
+        try:
+            expr = self.params[param].get()
+            # 优先使用safe_eval解析公式
+            result = safe_eval(expr)
+            if result is not None:
+                return float(result)
+            
+            # 如果公式解析失败，尝试直接转换
+            return float(expr)
+        except (KeyError, ValueError, TypeError, SyntaxError):
+            # 处理参数不存在或非法表达式
+            return default
+        except Exception as e:
+            # 其他未知异常处理
+            print(f"参数 {param} 解析异常: {str(e)}")
+            return default
 
     def get_numeric_value(self, param):
         expr = self.params[param].get()
