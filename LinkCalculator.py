@@ -14,153 +14,86 @@ class LinkCalculator:
         # 玻尔兹曼常数 (J/K)
         self.BOLTZMANN_CONSTANT = 1.38e-23
 
-    def perform_calculations_terrestrial(self, input_params):
-        """执行所有计算步骤，按顺序计算各个参数"""
-        # 获取输入参数
-        # 信号参数
-        freq = input_params["frequency"]  # 信号频率，单位：GHz
-        bandwidth = input_params["bandwidth"]  # 信号带宽，单位：MHz
+    def perform_calculations(self, input_params, link_type):
+        """通用链路计算函数"""
+        # 公共参数获取
+        freq = input_params["frequency"]
+        bandwidth = input_params["bandwidth"]
+        eirp = input_params["tx_eirp"]
+        ant_gain = input_params["rx_antenna_gain"]
+        nf = input_params["rx_noise_figure"]
+        t_antenna = input_params["rx_noise_temp"]
+        interference_psd = input_params.get("interference_psd", -math.inf)
 
-        scene = input_params["scenario"]  # 场景，取值为 "农村宏蜂窝RMa"（RMa） 或 "城市宏蜂窝"（UMa）
-        los_condition = input_params["los_condition"]  # LOS条件，取值为 "LOS"、"NLoS" 或 "LOS+NLoS"
-        # 发射机参数
-        eirp = input_params["tx_eirp"]  # 发射机等效全向辐射功率，单位：dBW
-
-        # 接收机参数
-        ant_gain = input_params["rx_antenna_gain"]  # 接收天线增益，单位：dBi
-        nf = input_params["rx_noise_figure"]  # 接收机噪声系数，单位：dB
-        t_antenna = input_params["rx_noise_temp"]  # 接收天线噪声温度，单位：K
-
-        # 收发设备距离
-        distance = input_params["distance"]  # 星地距离，单位：km
-
-        # 损耗参数 
-        beam_loss = input_params["beam_edge_loss"] if "beam_edge_loss" in input_params else 0  # 波束边缘损耗，单位：dB
-        interference_psd = input_params["interference_psd"] if "interference_psd" in input_params else -math.inf  # 干扰，单位：dBm/MHz
-        # 计算路径损耗
-        path_loss = pathLoss_3GPP38901(freq, distance*1000, scene, los_condition)
-
-        # 计算噪声功率谱密度
-        noise_psd = self.calculate_noise_psd(nf, t_antenna)
-
-        # 计算总损耗
-        total_loss = path_loss + beam_loss
-
-        # 计算接收信号功率谱密度
-        received_signal_psd, total_received_power = self.calculate_received_signal(
-            eirp, total_loss, ant_gain, bandwidth
-        )
-
-        # 计算C/N比
-        c_to_n = received_signal_psd - noise_psd
-
-        # 计算C/(N+I)
-        if interference_psd != -math.inf:
-            # 将dB值转换为线性值进行计算
-            c_linear = 10 ** (received_signal_psd / 10)
-            n_linear = 10 ** (noise_psd / 10)
-            i_linear = 10 ** (interference_psd / 10)
-            c_n_plus_i_linear = c_linear / (n_linear + i_linear)
-            c_to_n_plus_i = 10 * math.log10(c_n_plus_i_linear)  # 转换回dB
+        # 链路类型判断
+        if link_type in ["星-地上行", "星-地下行"]: 
+            # 卫星链路特有参数
+            scan_angle = input_params["satellite_scan_angle"]
+            height = input_params["satellite_height"]
+            terminal_elevation_angle, distance = self.calculate_geometric_parameters(scan_angle, height)
+            
+            # 卫星特有损耗计算
+            path_loss = self.calculate_path_loss(freq, distance)
+            rain_fade = self.calculate_rain_fade(freq, terminal_elevation_angle, 
+                                               input_params.get("rain_rate", 0)) if "rain_rate" in input_params else 0
         else:
-            c_to_n_plus_i = c_to_n  # 无干扰时等于C/N
+            # 地面链路参数
+            distance = input_params["distance"]
+            scene = input_params["scenario"]
+            los_condition = input_params["los_condition"]
+            path_loss = pathLoss_3GPP38901(freq, distance*1000, scene, los_condition)
+            rain_fade = 0
 
-        # 计算G/T值
+        # 公共损耗计算
+        atmos_loss = input_params.get("atmospheric_loss", 0)
+        scint_loss = input_params.get("scintillation_loss", 0)
+        pol_loss = input_params.get("polarization_loss", 0)
+        beam_loss = input_params.get("beam_edge_loss", 0)
+        scan_loss = input_params.get("scan_loss", 0)
+        link_margin = input_params.get("link_margin", 0)
+        
+        total_loss = self.calculate_total_loss(atmos_loss, scint_loss, pol_loss, 
+                                             path_loss, rain_fade, link_margin, 
+                                             beam_loss, scan_loss)
+
+        # 公共计算流程
+        noise_psd = self.calculate_noise_psd(nf, t_antenna)
+        received_signal_psd, _ = self.calculate_received_signal(eirp, total_loss, ant_gain, bandwidth)
+        
+        c_to_n = received_signal_psd - noise_psd
+        c_to_n_plus_i = self.calculate_cni(c_to_n, received_signal_psd, noise_psd, interference_psd)
         gt_ratio = self.calculate_gt_ratio(ant_gain, nf, t_antenna)
 
+        # 结果组装
         results = {
-            "distance": distance,
             "path_loss": path_loss,
             "total_loss": total_loss,
             "noise_psd": noise_psd,
             "received_signal_psd": received_signal_psd,
-            "total_received_power": total_received_power,
             "c_to_n": c_to_n,
             "c_to_n_plus_i": c_to_n_plus_i,
             "gt_ratio": gt_ratio
         }
+
+        if link_type in ["星-地上行", "星-地下行"]: 
+            results.update({
+                "terminal_elevation_angle": terminal_elevation_angle,
+                "distance": distance,
+                "rain_fade": rain_fade
+            })
+        else:
+            results["distance"] = distance
+
         return results
 
-
-    def perform_calculations_sat(self, input_params):
-        """执行所有计算步骤，按顺序计算各个参数"""
-        # 获取输入参数
-        # 信号参数
-        freq = input_params["frequency"]  # 信号频率，单位：GHz
-        bandwidth = input_params["bandwidth"]  # 信号带宽，单位：MHz
-
-        # 发射机参数
-        eirp = input_params["tx_eirp"]  # 发射机等效全向辐射功率，单位：dBW
-
-        # 接收机参数
-        ant_gain = input_params["rx_antenna_gain"]  # 接收天线增益，单位：dBi
-        nf = input_params["rx_noise_figure"]  # 接收机噪声系数，单位：dB
-        t_antenna = input_params["rx_noise_temp"]  # 接收天线噪声温度，单位：K
-
-        # 几何参数
-        scan_angle = input_params["satellite_scan_angle"]  # 卫星扫描角，单位：度
-        height = input_params["satellite_height"]  # 卫星高度，单位：km
-
-        # 计算终端仰角、星地距离
-        terminal_elevation_angle, distance = self.calculate_geometric_parameters(scan_angle, height)
-
-        # 损耗参数 
-        atmos_loss = input_params["atmospheric_loss"] if "atmospheric_loss" in input_params else 0  # 大气损耗，单位：dB
-        scint_loss = input_params["scintillation_loss"] if "scintillation_loss" in input_params else 0  # 闪烁损耗，单位：dB
-        pol_loss = input_params["polarization_loss"] if "polarization_loss" in input_params else 0  # 极化损耗，单位：dB
-        
-        rain_rate = input_params["rain_rate"] if "rain_rate" in input_params else 0  # 降雨率，单位：mm/h
-        link_margin = input_params["link_margin"] if "link_margin" in input_params else 0  # 链路余量，单位：dB
-        beam_loss = input_params["beam_edge_loss"] if "beam_edge_loss" in input_params else 0  # 波束边缘损耗，单位：dB
-        scan_loss = input_params["scan_loss"] if "scan_loss" in input_params else 0  # 扫描损耗，单位：dB
-        interference_psd = input_params["interference_psd"] if "interference_psd" in input_params else -math.inf  # 干扰，单位：dBm/MHz
-        # 计算路径损耗
-        path_loss = self.calculate_path_loss(freq, distance)
-
-        # 计算雨衰（如果启用）
-        rain_fade = self.calculate_rain_fade(freq, terminal_elevation_angle, rain_rate) if "rain_rate" in input_params else 0
-
-        # 计算噪声功率谱密度
-        noise_psd = self.calculate_noise_psd(nf, t_antenna)
-
-        # 计算总损耗
-        total_loss = self.calculate_total_loss(atmos_loss, scint_loss, pol_loss, path_loss, rain_fade, link_margin, beam_loss, scan_loss)
-
-        # 计算接收信号功率谱密度
-        received_signal_psd, total_received_power = self.calculate_received_signal(
-            eirp, total_loss, ant_gain, bandwidth
-        )
-
-        # 计算C/N比
-        c_to_n = received_signal_psd - noise_psd
-
-        # 计算C/(N+I)
+    def calculate_cni(self, c_to_n, received_psd, noise_psd, interference_psd):
+        """计算C/(N+I)的公共方法"""
         if interference_psd != -math.inf:
-            # 将dB值转换为线性值进行计算
-            c_linear = 10 ** (received_signal_psd / 10)
+            c_linear = 10 ** (received_psd / 10)
             n_linear = 10 ** (noise_psd / 10)
             i_linear = 10 ** (interference_psd / 10)
-            c_n_plus_i_linear = c_linear / (n_linear + i_linear)
-            c_to_n_plus_i = 10 * math.log10(c_n_plus_i_linear)  # 转换回dB
-        else:
-            c_to_n_plus_i = c_to_n  # 无干扰时等于C/N
-
-        # 计算G/T值
-        gt_ratio = self.calculate_gt_ratio(ant_gain, nf, t_antenna)
-
-        return {
-            "terminal_elevation_angle": terminal_elevation_angle,  # 终端仰角作为输出参数
-            "distance": distance,
-            "path_loss": path_loss,
-            "rain_fade": rain_fade,
-            "total_loss": total_loss,
-            "noise_psd": noise_psd,
-            "received_signal_psd": received_signal_psd,
-            "total_received_power": total_received_power,
-            "c_to_n": c_to_n,
-            "c_to_n_plus_i": c_to_n_plus_i,
-            "gt_ratio": gt_ratio
-        }
+            return 10 * math.log10(c_linear / (n_linear + i_linear))
+        return c_to_n
 
     def calculate_geometric_parameters(self, scan_angle_degrees, height):
         """
@@ -406,7 +339,7 @@ if __name__ == "__main__":
     }
 
     calculator = LinkCalculator()
-    results = calculator.perform_calculations(input_params)
+    results = calculator.perform_calculations(input_params, "星-地下行")
 
     for key, value in results.items():
         print(f"{key}: {value}")

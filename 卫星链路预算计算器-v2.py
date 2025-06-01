@@ -256,10 +256,10 @@ class SatelliteLinkBudgetCalculator:
             input_params = self._get_input_params()
 
             calculator = LinkCalculator()
-            if self.link_type_var.get() == "星-地上行" or self.link_type_var.get() == "星-地下行":
-                # 执行计算 
-                self.results_temp = calculator.perform_calculations_sat(input_params)  # 将结果保存为类属性
-
+            link_type = self.link_type_var.get()
+            # 执行计算
+            self.results_temp = calculator.perform_calculations(input_params, link_type)  # 将结果保存为类属性
+            if link_type in ["星-地上行", "星-地下行"]: 
                 results = {
                     "链路状态": [
                         ("（位于波束中心的）终端仰角", self.results_temp["terminal_elevation_angle"], "°"),  # 终端仰角作为输出参数
@@ -275,9 +275,6 @@ class SatelliteLinkBudgetCalculator:
                     ],
                 }
             else: # 地对地场景
-                # 执行计算 
-                self.results_temp = calculator.perform_calculations_terrestrial(input_params)  # 将结果保存为类属性
-
                 results = {
                     "链路状态": [
                         ("路径损耗", self.results_temp["path_loss"], "dB"),
