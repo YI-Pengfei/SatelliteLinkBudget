@@ -100,7 +100,7 @@ PARAM_GROUPS = {
     }
 }
 
-# 新增分组名称配置
+# 输入参数的分组名称配置
 PARAM_GROUP_NAMES = {
     "base_satellite": {
         "common": "信号参数",
@@ -121,5 +121,50 @@ PARAM_GROUP_NAMES = {
     "地-地上行": {
         "tx_params": "终端参数",
         "rx_params": "基站参数"
+    }
+}
+
+# 可选输入参数的初始状态标志
+FLAG_DEFAULTS = {
+    "atmospheric_loss": True,
+    "scintillation_loss": True,
+    "polarization_loss": True,
+    "rain_rate": False,
+    "beam_edge_loss": False,
+    "scan_loss": False,
+    "link_margin": True,
+    "interference_psd": False,
+}
+
+
+# 结果分类元数据（新增）
+RESULT_CATEGORIES = {
+    "卫星链路": {
+        "链路状态": [
+            {"label": "（位于波束中心的）终端仰角", "key": "terminal_elevation_angle", "unit": "°"},
+            {"label": "星地距离", "key": "distance", "unit": "km"},
+            {"label": "路径损耗", "key": "path_loss", "unit": "dB"},
+            {"label": "雨衰", "key": "rain_fade", "unit": "dB"}
+        ],
+        "链路性能": [
+            {"label": "接收信号功率谱密度", "key": "received_signal_psd", "unit": "dBm/MHz"},
+            {"label": "噪声功率谱密度", "key": "noise_psd", "unit": "dBm/MHz"},
+            {"label": "C/N", "key": "c_to_n", "unit": "dB"},
+            {"label": "C/(N+I)", "key": "c_to_n_plus_i", "unit": "dB"},
+            {"label": "终端G/T值", "key": "gt_ratio", "unit": "dB/K"}  # 通用G/T值标签
+        ]
+    },
+    "地面链路": {
+        "链路状态": [
+            {"label": "距离", "key": "distance", "unit": "km"},
+            {"label": "路径损耗", "key": "path_loss", "unit": "dB"}
+        ],
+        "链路性能": [
+            {"label": "接收信号功率谱密度", "key": "received_signal_psd", "unit": "dBm/MHz"},
+            {"label": "噪声功率谱密度", "key": "noise_psd", "unit": "dBm/MHz"},
+            {"label": "C/N", "key": "c_to_n", "unit": "dB"},
+            {"label": "C/(N+I)", "key": "c_to_n_plus_i", "unit": "dB"},
+            {"label": "基站G/T值", "key": "gt_ratio", "unit": "dB/K"}  # 地面链路G/T标签
+        ]
     }
 }

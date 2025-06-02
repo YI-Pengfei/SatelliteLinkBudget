@@ -18,7 +18,7 @@ import math
 from LinkCalculator import LinkCalculator
 from SafeMath import safe_eval, format_result
 from IOHandler import InputHandler, ResultDisplay
-from parameters import PARAM_MAPPING, PARAM_GROUPS
+from parameters import PARAM_MAPPING, PARAM_GROUPS, RESULT_CATEGORIES
 
 
 ctk.set_appearance_mode("System")  # 跟随系统主题
@@ -158,9 +158,17 @@ class SatelliteLinkBudgetCalculator:
         self.status_bar.pack(fill=tk.X, pady=5)
 
     def change_link_type(self, link_type):
-        """切换链路类型"""
+        """切换链路类型时更新输入处理器"""
         self._clear_input_frame()
         params = self._setup_link_defaults(link_type)
+        
+        # 创建新的输入处理器时传递当前链路类型
+        self.input_handler = InputHandler(
+            self.input_frame, 
+            params,
+            link_type  # 传递当前选择的链路类型
+        )
+        
         self._setup_input_handler(params)
         self._setup_gt_display(link_type)
 
@@ -195,7 +203,11 @@ class SatelliteLinkBudgetCalculator:
 
     def _setup_input_handler(self, params):
         """设置输入处理器"""
-        self.input_handler = InputHandler(self.input_frame, params, self)  # 添加self作为
+        self.input_handler = InputHandler(
+            self.input_frame, 
+            params,
+            self.link_type_var.get()  # 直接传递当前链路类型
+        )
         self.input_handler.create_input_form(self.input_frame)
 
 
@@ -259,46 +271,19 @@ class SatelliteLinkBudgetCalculator:
             link_type = self.link_type_var.get()
             # 执行计算
             self.results_temp = calculator.perform_calculations(input_params, link_type)  # 将结果保存为类属性
-            if link_type in ["星-地上行", "星-地下行"]: 
-                results = {
-                    "链路状态": [
-                        ("（位于波束中心的）终端仰角", self.results_temp["terminal_elevation_angle"], "°"),  # 终端仰角作为输出参数
-                        ("星地距离", self.results_temp["distance"], "km"),
-                        ("路径损耗", self.results_temp["path_loss"], "dB"),
-                        ("雨衰", self.results_temp["rain_fade"], "dB"),
-                    ],
-                    "链路性能": [
-                        ("接收信号功率谱密度", self.results_temp["received_signal_psd"], "dBm/MHz"),
-                        ("噪声功率谱密度", self.results_temp["noise_psd"], "dBm/MHz"),
-                        ("C/N", self.results_temp["c_to_n"], "dB"),
-                        ("C/(N+I)", self.results_temp["c_to_n_plus_i"], "dB"),  # 新增C/(N+I)
-                    ],
-                }
-            else: # 地对地场景
-                results = {
-                    "链路状态": [
-                        ("路径损耗", self.results_temp["path_loss"], "dB"),
-                    ],
-                    "链路性能": [
-                        ("接收信号功率谱密度", self.results_temp["received_signal_psd"], "dBm/MHz"),
-                        ("噪声功率谱密度", self.results_temp["noise_psd"], "dBm/MHz"),
-                        ("C/N", self.results_temp["c_to_n"], "dB"),
-                        ("C/(N+I)", self.results_temp["c_to_n_plus_i"], "dB"),  # 新增C/(N+I)
-                    ],
-                }
 
             # 更新G/T值显示
             if self.gt_label and "gt_ratio" in self.results_temp:
                 self.gt_label.configure(text=format_result(self.results_temp["gt_ratio"]))
-
+            """
             if self.link_type_var.get() == "星-地上行": # 星-地上行链路
                 results["链路性能"].append(("卫星G/T值", self.results_temp["gt_ratio"], "dB/K"))
             elif self.link_type_var.get() in ["星-地下行", "地-地下行"]: # 下行链路
                 results["链路性能"].append(("终端G/T值", self.results_temp["gt_ratio"], "dB/K"))
             elif self.link_type_var.get() =="地-地上行": # 地-地上行链路
                 results["链路性能"].append(("基站G/T值", self.results_temp["gt_ratio"], "dB/K"))
-
-            self.result_display.update_results(results, self.link_type_var.get())
+            """
+            self.result_display.update_results(self.results_temp, self.link_type_var.get())
             self.status_var.set("计算完成")
         except Exception as e:
             messagebox.showerror("计算错误", f"计算过程中出现错误: {str(e)}")
@@ -342,28 +327,10 @@ class SatelliteLinkBudgetCalculator:
                          bottom=Side(style='thin'))
             alignment = Alignment(horizontal='center', vertical='center')
 
-            # 定义参数标签
+            # 定义参数标签 (英文参数名 -> 中文名称)
             param_labels = {
-                "frequency": ("频率", "GHz"),
-                "bandwidth": ("带宽", "MHz"),
-                "satellite_height": ("卫星高度", "km"),
-                "satellite_scan_angle": ("卫星扫描角", "°"),
-                "terminal_eirp": ("终端EIRP", "dBW"),
-                "satellite_antenna_gain": ("卫星天线增益", "dBi"),
-                "satellite_noise_figure": ("卫星噪声系数", "dB"),
-                "satellite_noise_temp": ("卫星天线噪声温度", "K"),
-                "satellite_eirp": ("卫星EIRP", "dBW"),
-                "terminal_noise_figure": ("终端噪声系数", "dB"),
-                "terminal_noise_temp": ("终端天线噪声温度", "K"),
-                "terminal_antenna_gain": ("终端天线增益", "dBi"),
-                "atmospheric_loss": ("大气损耗", "dB"),
-                "scintillation_loss": ("闪烁损耗", "dB"),
-                "polarization_loss": ("极化损耗", "dB"),
-                "beam_edge_loss": ("波束边缘损耗", "dB"),
-                "scan_loss": ("扫描损耗", "dB"),
-                "rain_rate": ("降雨率", "mm/h"),
-                "link_margin": ("链路余量", "dB"),
-                "interference_psd": ("干扰信号功率谱密度", "dBm/MHz")
+                param: (PARAM_MAPPING[param]["ch_name"], PARAM_MAPPING[param]["unit"])
+                for param in PARAM_MAPPING
             }
 
             # 写入报告标题
@@ -418,44 +385,7 @@ class SatelliteLinkBudgetCalculator:
                 ws['B'+str(ws.max_row)].font = header_font
                 ws['C'+str(ws.max_row)].font = header_font
 
-                # 定义结果项与results_temp中键的映射关系
-                result_mapping = {
-                    "（位于波束中心的）终端仰角": "terminal_elevation_angle",
-                    "星地距离": "distance",
-                    "距离": "distance",
-                    "路径损耗": "path_loss",
-                    "雨衰": "rain_fade",
-                    "接收信号功率谱密度": "received_signal_psd",
-                    "噪声功率谱密度": "noise_psd",
-                    "C/N": "c_to_n",
-                    "C/(N+I)": "c_to_n_plus_i",
-                    "卫星G/T值": "gt_ratio",
-                    "终端G/T值": "gt_ratio",
-                    "基站G/T值": "gt_ratio"
-                }
-
-                # 定义结果项
-                if self.link_type_var.get() == "星-地上行" or self.link_type_var.get() == "星-地下行":
-                    result_items = [
-                        ("（位于波束中心的）终端仰角", "度"),
-                        ("星地距离", "km"),
-                        ("路径损耗", "dB"),
-                        ("雨衰", "dB"),
-                        ("接收信号功率谱密度", "dBm/MHz"),
-                        ("噪声功率谱密度", "dBm/MHz"),
-                        ("C/N", "dB"),
-                        ("C/(N+I)", "dB"),
-                    ]
-                else: # 地对地场景
-                    result_items = [
-                        ("距离", "km"),
-                        ("路径损耗", "dB"),
-                        ("接收信号功率谱密度", "dBm/MHz"),
-                        ("噪声功率谱密度", "dBm/MHz"),
-                        ("C/N", "dB"),
-                        ("C/(N+I)", "dB"),
-                    ]
-
+                """
                 # 根据链路类型添加G/T值
                 if self.link_type_var.get() == "星-地上行":
                     result_items.append(("卫星G/T值", "dB/K"))
@@ -463,17 +393,17 @@ class SatelliteLinkBudgetCalculator:
                     result_items.append(("终端G/T值", "dB/K"))
                 else:  # 地对地场景
                     result_items.append(("基站G/T值", "dB/K"))
-
-                # 写入结果并应用样式
-                for label, unit in result_items:
-                    # 通过映射关系获取正确的键
-                    key = result_mapping[label]
-                    # 确保获取的值是数值类型
-                    try:
-                        value = float(self.results_temp[key])
-                        ws.append([label, unit, value])
-                    except:
-                        ws.append([label, unit, 0])
+                """
+                # 根据链路类型选择结果分类
+                link_category = "卫星链路" if "星" in self.link_type_var.get() else "地面链路"
+                for category in RESULT_CATEGORIES[link_category].values():
+                    for item in category:
+                        key = item["key"]
+                        ws.append([
+                            item["label"],
+                            item["unit"],
+                            self.results_temp.get(key, 0)
+                        ])            
 
             # 应用边框样式到所有单元格
             for row in ws.iter_rows():
@@ -485,6 +415,7 @@ class SatelliteLinkBudgetCalculator:
             messagebox.showinfo("报告生成成功", f"仿真报告已保存至:\n{file_path}")
         except Exception as e:
             messagebox.showerror("报告生成失败", f"生成仿真报告时出错:\n{str(e)}")
+
 
     def show_detailed_calculation(self):
         """显示详细计算步骤"""

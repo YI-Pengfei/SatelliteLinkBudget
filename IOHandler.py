@@ -9,23 +9,19 @@ IOHandler.py
 import tkinter as tk
 import customtkinter as ctk
 from SafeMath import safe_eval, format_result
-from parameters import PARAM_MAPPING, PARAM_GROUPS, PARAM_GROUP_NAMES
+from parameters import PARAM_MAPPING, PARAM_GROUPS, PARAM_GROUP_NAMES, FLAG_DEFAULTS, RESULT_CATEGORIES
 
+GROUP_TITLE_FONT = ("微软雅黑", 12, "bold")
+GROUP_TITLE_COLOR = "#165DFF"
 # 输入处理类
 class InputHandler:
-    def __init__(self, parent, default_params, main_app):  # 新增main_app参数
+    def __init__(self, parent, default_params, link_type):  # 改为接收link_type参数
+        self.link_type = link_type  # 存储链路类型
         self.parent = parent
-        self.main_app = main_app  # 保存主应用引用
         self.params = {param: tk.StringVar(value=value) for param, value in default_params.items()}
         self.flags = {
-            "atmospheric_loss": tk.BooleanVar(value=True),
-            "scintillation_loss": tk.BooleanVar(value=True),
-            "polarization_loss": tk.BooleanVar(value=True),
-            "rain_rate": tk.BooleanVar(value=False),
-            "beam_edge_loss": tk.BooleanVar(value=False),
-            "scan_loss": tk.BooleanVar(value=False),
-            "link_margin": tk.BooleanVar(value=True),
-            "interference_psd": tk.BooleanVar(value=False),
+            flag_name: tk.BooleanVar(value=default) 
+            for flag_name, default in FLAG_DEFAULTS.items()
         }
         self.defaults = {p: v.get() for p, v in self.params.items()}
         self.entries = {}
@@ -43,12 +39,8 @@ class InputHandler:
         scrollable_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         scrollable_frame.grid_columnconfigure(0, weight=1)
 
-        group_title_font = ("微软雅黑", 12, "bold")
-        group_title_color = "#165DFF"
-
-        # 从parameters.py获取配置
-        link_type = self.main_app.link_type_var.get()  # 通过主应用直接获取
-        config = PARAM_GROUPS[link_type]
+        # 根据链路类型选择参数组
+        config = PARAM_GROUPS[self.link_type]
         base_config = PARAM_GROUPS[config["base"]]
 
         # 合并所有参数组
@@ -67,13 +59,13 @@ class InputHandler:
 
             # 获取分组标题
             group_title = PARAM_GROUP_NAMES[config["base"]].get(group_type, "")
-            if link_type in PARAM_GROUP_NAMES and group_type in PARAM_GROUP_NAMES[link_type]:
-                group_title = PARAM_GROUP_NAMES[link_type][group_type]
+            if self.link_type in PARAM_GROUP_NAMES and group_type in PARAM_GROUP_NAMES[self.link_type]:
+                group_title = PARAM_GROUP_NAMES[self.link_type][group_type]
 
             self.create_group_title(
                 scrollable_frame,
                 f"{group_index}. {group_title}",
-                group_title_font, group_title_color
+                GROUP_TITLE_FONT, GROUP_TITLE_COLOR
             )
 
             # 生成参数输入项
@@ -254,8 +246,7 @@ class InputHandler:
     def reset_params(self):
         """重置所有参数输入和标志位状态"""
         # 获取当前链路类型配置
-        link_type = self.main_app.link_type_var.get()
-        config = PARAM_GROUPS[link_type]
+        config = PARAM_GROUPS[self.link_type]
         base_config = PARAM_GROUPS[config["base"]]
 
         # 合并所有参数组
@@ -273,14 +264,8 @@ class InputHandler:
                 self.raw_formulas[param] = ""
 
         # 重置标志位
-        self.flags["atmospheric_loss"].set(True)
-        self.flags["scintillation_loss"].set(True)
-        self.flags["polarization_loss"].set(True)
-        self.flags["link_margin"].set(True)
-        self.flags["rain_rate"].set(False)
-        self.flags["beam_edge_loss"].set(False)
-        self.flags["scan_loss"].set(False)
-        self.flags["interference_psd"].set(False)
+        for flag_name, default in FLAG_DEFAULTS.items():
+            self.flags[flag_name].set(default)
 
         # 重置地面场景选择器
         if hasattr(self, 'scenario_var'):
@@ -310,7 +295,7 @@ class InputHandler:
         }
 
 # 结果显示类
-class ResultDisplay:
+class ResultDisplay2222:
     def __init__(self):
         self.result_frame = None
         self.result_labels = {}
@@ -409,3 +394,64 @@ class ResultDisplay:
                 for label_info in section:
                     label_info[0].configure(text="")  # 清空结果标签内容
                     label_info[1].configure(text="")  # 清空单位标签内容
+
+
+class ResultDisplay:
+    def __init__(self):
+        self.result_frames = {}  # 存储各分类框架
+
+    def create_result_display(self, parent):
+        """初始化结果显示区域（新增）"""
+        self.parent = parent
+        self.parent.pack_propagate(False)  # 禁止自动调整大小
+
+    def update_results(self, results, link_type):
+        """优化后的结果更新方法（修复重复显示问题）"""
+        # 清除旧结果（包括所有子组件和框架引用）
+        for widget in self.parent.winfo_children():
+            widget.destroy()
+        self.result_frames.clear()  # 清空框架引用
+        
+        # 根据链路类型选择元数据
+        category_key = "卫星链路" if link_type.startswith("星-") else "地面链路"
+        categories = RESULT_CATEGORIES[category_key]
+
+        # 遍历元数据生成结果框架
+        row_counter = 0  # 添加行号计数器
+        for category_name, items in categories.items():
+            # 创建分类标题
+            title_label = ctk.CTkLabel(
+                self.parent,
+                text=category_name,
+                font=GROUP_TITLE_FONT,
+                text_color=GROUP_TITLE_COLOR
+            )
+            title_label.pack(fill="x", pady=(10, 5))
+
+            # 创建分类内容框架
+            category_frame = ctk.CTkFrame(self.parent)
+            category_frame.pack(fill="x", padx=5, pady=3)
+            category_frame.grid_columnconfigure(1, weight=1)
+
+            # 遍历结果项生成控件
+            for item in items:
+                # 标签（左对齐）
+                ctk.CTkLabel(
+                    category_frame,
+                    text=f"{item['label']}:",
+                    anchor="w"
+                ).grid(row=row_counter, column=0, sticky="w", padx=5)
+
+                # 值显示（右对齐，带单位）
+                value = results.get(item['key'], "N/A")
+                ctk.CTkLabel(
+                    category_frame,
+                    text=f"{format_result(value)} {item['unit']}",
+                    anchor="e"
+                ).grid(row=row_counter, column=1, sticky="e", padx=5)
+                
+                row_counter += 1  # 递增行号
+                self.result_frames[item['key']] = (title_label, category_frame)
+
+        # 强制刷新界面
+        self.parent.update_idletasks()

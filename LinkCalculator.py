@@ -3,6 +3,20 @@ LinkCalculator.py
 功能：
 1. 计算链路的各种参数，包括路径损耗、噪声功率谱密度、接收信号功率谱密度、C/N比、C/(N+I)、G/T值等。
 2. 支持不同的链路类型，包括地面链路和卫星链路。
+
+输入参数：
+- input_params: 包含链路相关的所有输入参数的字典。
+- link_type: 链路类型，字符串，可选值为"星-地上行"、"星-地下行"、"地-地上行"、"地-地下行"。
+输出：
+- 计算结果的字典，包含各种链路参数的计算值。
+注意：
+- 输入参数的格式和名称应与具体的链路类型相匹配。
+- 计算过程中可能涉及到的物理公式和常量应在代码中明确定义。
+- 结果的精度和单位应与具体的应用场景相匹配。
+- 对于卫星链路，需要根据卫星的高度和扫描角计算卫星的仰角和距离。
+- 对于地面链路，需要根据距离和场景计算路径损耗。
+- 对于星-地上行和星-地下行链路，需要根据卫星的高度和扫描角计算卫星的仰角和距离，并根据距离计算路径损耗。
+- 对于地面链路，需要根据距离和场景计算路径损耗。
 """
 
 import math
@@ -33,7 +47,7 @@ class LinkCalculator:
             terminal_elevation_angle, distance = self.calculate_geometric_parameters(scan_angle, height)
             
             # 卫星特有损耗计算
-            path_loss = self.calculate_path_loss(freq, distance)
+            path_loss = self.calculate_freespace_path_loss(freq, distance)
             rain_fade = self.calculate_rain_fade(freq, terminal_elevation_angle, 
                                                input_params.get("rain_rate", 0)) if "rain_rate" in input_params else 0
         else:
@@ -129,7 +143,7 @@ class LinkCalculator:
         
         return  B_deg-90, c
 
-    def calculate_path_loss(self, freq, distance):
+    def calculate_freespace_path_loss(self, freq, distance):
         """计算自由空间路径损耗 (dB)
         公式：L = 92.45 + 20*log10(f) + 20*log10(d)
         其中f为频率(GHz)，d为距离(km)
