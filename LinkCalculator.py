@@ -389,8 +389,11 @@ class UnitConverter:
             "KHz ↔ MHz": {
                 "units": ("KHz", "MHz"),
                 "funcs": (lambda x: x / 1000, lambda x: x * 1000)
+            },
+            "摄氏度（°C） ↔ 开尔文(K)": {
+                "units": ("摄氏度（°C）", "开尔文（K）"),
+                "funcs": (lambda x: x + 273.15, lambda x: x - 273.15)
             }
-
         }
 
     def convert(self, conversion_type, value, direction):
