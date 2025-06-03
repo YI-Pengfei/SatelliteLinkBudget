@@ -361,3 +361,44 @@ if __name__ == "__main__":
 
     for key, value in results.items():
         print(f"{key}: {value}")
+
+
+class UnitConverter:
+    """
+    单位转换工具类
+    提供不同单位之间的转换功能
+    """
+    def __init__(self):
+        self.converters = {
+            "线性值 ↔ dB": {
+                "units": ("线性值", "dB"),
+                "funcs": (lambda x: 10 * math.log10(x), lambda x: 10 ** (x / 10))
+            },
+            "dBm/MHz ↔ dBm/RE": {
+                "units": ("dBm/MHz", "dBm/RE"),
+                "funcs": (lambda x: x - 10 * math.log10(1000/15), lambda x: x + 10 * math.log10(1000/15))
+            },
+            "dBW ↔ dBm": {
+                "units": ("dBW", "dBm"),
+                "funcs": (lambda x: x + 30, lambda x: x - 30)
+            },
+            "W ↔ dBm": {
+                "units": ("W", "dBm"),
+                "funcs": (lambda x: 10 * math.log10(x * 1000), lambda x: 10 ** ((x - 30) / 10))
+            },
+            "KHz ↔ MHz": {
+                "units": ("KHz", "MHz"),
+                "funcs": (lambda x: x / 1000, lambda x: x * 1000)
+            }
+
+        }
+
+    def convert(self, conversion_type, value, direction):
+        try:
+            value = float(value)
+            if direction == 0:
+                return self.converters[conversion_type]["funcs"][0](value)
+            else:
+                return self.converters[conversion_type]["funcs"][1](value)
+        except ValueError:
+            return None

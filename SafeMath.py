@@ -31,7 +31,8 @@ SAFE_MATH = {
     'inf': math.inf,    # 无穷大
 }
 
-def safe_eval(expr):
+# 修正参数中的中文逗号为英文逗号
+def safe_eval(expr, sign_massagebox=True):
     """
     安全表达式求值函数
     限制可执行的函数和操作符，防止代码注入风险
@@ -52,7 +53,8 @@ def safe_eval(expr):
         }
         return eval(expr, {'__builtins__': {}}, safe_namespace)
     except Exception as e:
-        messagebox.showerror("公式错误", f"表达式解析失败: {str(e)}")
+        if sign_massagebox:
+            messagebox.showerror("公式错误", f"表达式解析失败: {str(e)}")
         return None
 
 def format_result(value):

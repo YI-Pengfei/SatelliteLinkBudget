@@ -15,7 +15,7 @@ from openpyxl.styles import Font, Border, Side, Alignment  # Add this import
 from tkinter import filedialog, messagebox
 from datetime import datetime
 import math
-from LinkCalculator import LinkCalculator
+from LinkCalculator import LinkCalculator, UnitConverter
 from SafeMath import safe_eval, format_result
 from IOHandler import InputHandler, ResultDisplay
 from parameters import PARAM_MAPPING, PARAM_GROUPS, RESULT_CATEGORIES
@@ -33,7 +33,6 @@ GROUP_TITLE_COLOR = "#165DFF"
 STATUS_BAR_FONT = ("微软雅黑", 10)
 STATUS_BAR_BG_COLOR = "#f0f0f0"
 STATUS_BAR_TEXT_COLOR = "#333"
-
 
 class SatelliteLinkBudgetCalculator:
     def __init__(self, root):
@@ -456,7 +455,7 @@ class SatelliteLinkBudgetCalculator:
         """ 深色模式 """
         ctk.set_appearance_mode("dark" if self.theme_switch.get() else "light")
 
-    # 添加新的方法实现单位转换器
+
     def show_unit_converter(self):
         """显示单位转换器窗口"""
         converter_window = ctk.CTkToplevel(self.root)
@@ -467,87 +466,104 @@ class SatelliteLinkBudgetCalculator:
         main_frame = ctk.CTkFrame(converter_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # 创建转换器框架
-        converter_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        converter_frame.pack(fill="both", expand=True)
+        # 创建转换器实例
+        converter = UnitConverter()
 
-        # 定义转换类型
-        converters = [
-            ("dBW ↔ dBm", "dBW", "dBm", lambda x: x + 30, lambda x: x - 30),
-            ("W ↔ dBW", "W", "dBW", lambda x: 10 * math.log10(x), lambda x: 10 ** (x / 10)),
-            ("dBm/MHz ↔ dBm/RE", "dBm/MHz", "dBm/RE", 
-            lambda x: x - 10 * math.log10(1000/15), 
-            lambda x: x + 10 * math.log10(1000/15)),
-            ("KHz ↔ MHz", "KHz", "MHz", lambda x: x / 1000, lambda x: x * 1000),
-        ]
+        # 转换类型选择
+        conversion_var = ctk.StringVar(value=list(converter.converters.keys())[0])
+        conversion_label = ctk.CTkLabel(main_frame, text="选择转换类型:", font=DEFAULT_FONT)
+        conversion_label.pack(pady=5)
+        conversion_menu = ctk.CTkOptionMenu(
+            main_frame,
+            variable=conversion_var,
+            values=list(converter.converters.keys())
+        )
+        conversion_menu.pack(pady=5)
 
-        # 创建每个转换器的输入框
-        for i, (title, unit1, unit2, func1, func2) in enumerate(converters):
-            frame = ctk.CTkFrame(converter_frame, fg_color="transparent")
-            frame.pack(fill="x", pady=5)
+        # 输入和输出框架
+        io_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        io_frame.pack(fill="x", pady=10)
 
-            # 标题
-            ctk.CTkLabel(frame, text=title, font=("微软雅黑", 12, "bold")).pack(side=tk.TOP, pady=5)
+        input_var = ctk.StringVar()
+        output_var = ctk.StringVar()
 
-            # 输入框容器
-            input_container = ctk.CTkFrame(frame, fg_color="transparent")
-            input_container.pack(fill="x", pady=2)
+        last_focused = None
 
-            # 输入框1
-            input_frame1 = ctk.CTkFrame(input_container, fg_color="transparent")
-            input_frame1.pack(side=tk.LEFT, fill="x", expand=True, padx=5)
-            ctk.CTkLabel(input_frame1, text=unit1, width=80).pack(side=tk.LEFT)
-            entry1 = ctk.CTkEntry(input_frame1)
-            entry1.pack(side=tk.RIGHT, fill="x", expand=True)
+        def on_input_focus(event):
+            nonlocal last_focused
+            last_focused = "input"
 
-            # 输入框2
-            input_frame2 = ctk.CTkFrame(input_container, fg_color="transparent")
-            input_frame2.pack(side=tk.RIGHT, fill="x", expand=True, padx=5)
-            ctk.CTkLabel(input_frame2, text=unit2, width=80).pack(side=tk.LEFT)
-            entry2 = ctk.CTkEntry(input_frame2)
-            entry2.pack(side=tk.RIGHT, fill="x", expand=True)
+        def on_output_focus(event):
+            nonlocal last_focused
+            last_focused = "output"
 
-            # 绑定事件
-            entry1.bind("<FocusIn>", lambda e, e1=entry1: self._on_converter_focus_in(e1))
-            entry1.bind("<FocusOut>", lambda e, e1=entry1, e2=entry2, f=func1: 
-                        self._on_converter_focus_out(e1, e2, f))
-            entry2.bind("<FocusIn>", lambda e, e2=entry2: self._on_converter_focus_in(e2))
-            entry2.bind("<FocusOut>", lambda e, e1=entry1, e2=entry2, f=func2: 
-                        self._on_converter_focus_out(e2, e1, f))
-
-    def _on_converter_focus_in(self, entry):
-        """当输入框获得焦点时，显示原始公式"""
-        if hasattr(entry, 'raw_formula'):
-            entry.delete(0, tk.END)
-            entry.insert(0, entry.raw_formula)
-
-    def _on_converter_focus_out(self, src_entry, dst_entry, convert_func):
-        """当输入框失去焦点时，计算并显示结果"""
-        expr = src_entry.get().strip()
-        src_entry.raw_formula = expr
-        try:
-            value = safe_eval(expr)
-            if value is not None:
-                result = convert_func(float(value))
-                dst_entry.delete(0, tk.END)
-                dst_entry.insert(0, f"{result:.4f}")
-        except Exception as e:
-            dst_entry.delete(0, tk.END)
-
-
-    def _update_converter(self, src_entry, dst_entry, convert_func):
-        """更新转换结果"""
-        try:
-            value_str = src_entry.get().strip()
-            if not value_str:
-                dst_entry.delete(0, tk.END)
+        def perform_conversion():
+            input_value = ""
+            direction = 0
+            if last_focused == "input":
+                try:
+                    input_value = float(safe_eval(input_var.get(), sign_massagebox=False))
+                except Exception:
+                    output_var.set("输入无效")
+                direction = 0
+            elif last_focused == "output":
+                try:
+                    input_value = float(safe_eval(output_var.get(), sign_massagebox=False))
+                except Exception:
+                    input_var.set("输入无效")
+                direction = 1
+            else:
                 return
-            value = float(value_str)
-            result = convert_func(value)
-            dst_entry.delete(0, tk.END)
-            dst_entry.insert(0, f"{result:.4f}")
-        except ValueError:
-            dst_entry.delete(0, tk.END)
+
+            try:
+                # 使用 safe_eval 解析公式
+                numeric_value = input_value
+                conversion_type = conversion_var.get()
+                result = converter.convert(conversion_type, numeric_value, direction)
+                if result is not None:
+                    if direction == 0:
+                        output_var.set(f"{result:.4f}")
+                    else:
+                        input_var.set(f"{result:.4f}")
+                else:
+                    if direction == 0:
+                        output_var.set("输入无效")
+                    else:
+                        input_var.set("输入无效")
+            except Exception as e:
+                if direction == 0:
+                    output_var.set("公式解析错误")
+                else:
+                    input_var.set("公式解析错误")
+
+        input_unit_label = ctk.CTkLabel(io_frame, text="", font=DEFAULT_FONT)
+        input_unit_label.pack(side=tk.LEFT, padx=5)
+        input_entry = ctk.CTkEntry(io_frame, textvariable=input_var, width=150)
+        input_entry.pack(side=tk.LEFT, padx=5)
+        input_entry.bind("<FocusIn>", on_input_focus)
+        input_entry.bind("<KeyRelease>", lambda event: perform_conversion())
+
+        arrow_label = ctk.CTkLabel(io_frame, text="⇄", font=DEFAULT_FONT)
+        arrow_label.pack(side=tk.LEFT, padx=10)
+
+        output_unit_label = ctk.CTkLabel(io_frame, text="", font=DEFAULT_FONT)
+        output_unit_label.pack(side=tk.LEFT, padx=5)
+        output_entry = ctk.CTkEntry(io_frame, textvariable=output_var, width=150)
+        output_entry.pack(side=tk.LEFT, padx=5)
+        output_entry.bind("<FocusIn>", on_output_focus)
+        output_entry.bind("<KeyRelease>", lambda event: perform_conversion())
+
+        def update_units(*args):
+            # 清空输入框数值
+            input_var.set("")
+            output_var.set("")
+
+            conversion_type = conversion_var.get()
+            input_unit_label.configure(text=converter.converters[conversion_type]["units"][0])
+            output_unit_label.configure(text=converter.converters[conversion_type]["units"][1])
+
+        conversion_var.trace_add("write", update_units)
+        update_units()
 
 
 if __name__ == "__main__":
