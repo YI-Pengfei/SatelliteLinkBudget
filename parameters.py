@@ -60,21 +60,25 @@ PARAM_MAPPING = {
     "interference_psd": {"ch_name": "干扰功率谱密度", "unit": "dBm/MHz", "default_value": "-inf"}
 }
 
-# 新增参数分组配置
+# 新增参数分组配置（与前端界面显示相关）
 PARAM_GROUPS = {
     # 卫星链路基础参数
     "base_satellite": {
         "common": ["frequency", "bandwidth", "satellite_scan_angle", "satellite_height"],
         "optional": [
             "atmospheric_loss", "scintillation_loss", "polarization_loss",
-            "rain_rate", "link_margin", "beam_edge_loss", "scan_loss", "interference_psd"
-        ]
+            "rain_rate", "link_margin",  
+        ],
+        "beam_params":["beam_edge_loss", "scan_loss",],
+        "interference_params": ["interference_psd"]
     },
     
     # 地面链路基础参数
     "base_terrestrial": {
         "common": ["frequency", "bandwidth", "distance"], 
-        "optional": [ "beam_edge_loss", "interference_psd"]
+        "optional": [],
+        "beam_params":["beam_edge_loss", "scan_loss",],
+        "interference_params": ["interference_psd"]
     },
 
     # 具体链路类型配置
@@ -100,17 +104,21 @@ PARAM_GROUPS = {
     }
 }
 
-# 输入参数的分组名称配置
+# 输入参数的分组名称配置（与前端界面显示相关）
 PARAM_GROUP_NAMES = {
     "base_satellite": {
         "common": "信号参数",
         "optional": "损耗参数",
+        "beam_params": "波束参数",
+        "interference_params": "干扰参数",
         "tx_params": "卫星参数",
         "rx_params": "终端参数"
     },
     "base_terrestrial": {
         "common": "信号参数",
         "optional": "损耗参数",
+        "beam_params": "波束参数",
+        "interference_params": "干扰参数",
         "tx_params": "基站参数", 
         "rx_params": "终端参数"
     },
@@ -151,7 +159,8 @@ RESULT_CATEGORIES = {
             {"label": "噪声功率谱密度", "key": "noise_psd", "unit": "dBm/MHz"},
             {"label": "C/N", "key": "c_to_n", "unit": "dB"},
             {"label": "C/(N+I)", "key": "c_to_n_plus_i", "unit": "dB"},
-            {"label": "终端G/T值", "key": "gt_ratio", "unit": "dB/K"}  # 通用G/T值标签
+            {"label": "G/T值", "key": "gt_ratio", "unit": "dB/K"},  # 通用G/T值标签
+            {"label": "可实现速率", "key": "achievable_rate", "unit": "Mbps/MHz"}  
         ]
     },
     "地面链路": {
@@ -164,7 +173,8 @@ RESULT_CATEGORIES = {
             {"label": "噪声功率谱密度", "key": "noise_psd", "unit": "dBm/MHz"},
             {"label": "C/N", "key": "c_to_n", "unit": "dB"},
             {"label": "C/(N+I)", "key": "c_to_n_plus_i", "unit": "dB"},
-            {"label": "基站G/T值", "key": "gt_ratio", "unit": "dB/K"}  # 地面链路G/T标签
+            {"label": "G/T值", "key": "gt_ratio", "unit": "dB/K"},  # 地面链路G/T标签
+            {"label": "可实现速率", "key": "achievable_rate", "unit": "Mbps/MHz"}  
         ]
     }
 }

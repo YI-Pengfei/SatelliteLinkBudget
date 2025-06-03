@@ -189,7 +189,7 @@ class SatelliteLinkBudgetCalculator:
         # 合并基础参数
         merged_params = {
             param: get_param(param)
-            for group in ["common", "optional"]
+            for group in ["common", "optional", "beam_params", "interference_params"]
             for param in base_config[group]
         }
         
@@ -228,6 +228,8 @@ class SatelliteLinkBudgetCalculator:
         all_params = {
             "common": base_config["common"],
             "optional": base_config["optional"],
+            "beam_params": base_config["beam_params"],
+            "interference_params": base_config["interference_params"],
             "tx": config["tx_params"],
             "rx": config["rx_params"]
         }
@@ -237,7 +239,7 @@ class SatelliteLinkBudgetCalculator:
             for param in all_params["common"]
         }
         # 可选参数
-        for param in all_params["optional"]:
+        for param in all_params["optional"]+all_params["beam_params"]:
             input_params[param] = self.input_handler.get_numeric_value(param) if self.input_handler.flags[param].get() else 0
 
         # 干扰参数特殊处理

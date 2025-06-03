@@ -78,6 +78,8 @@ class LinkCalculator:
         c_to_n_plus_i = self.calculate_cni(c_to_n, received_signal_psd, noise_psd, interference_psd)
         gt_ratio = self.calculate_gt_ratio(ant_gain, nf, t_antenna)
 
+        achievable_rate = self.calculate_achievable_rate(c_to_n_plus_i, bandwidth)
+
         # 结果组装
         results = {
             "path_loss": path_loss,
@@ -86,7 +88,8 @@ class LinkCalculator:
             "received_signal_psd": received_signal_psd,
             "c_to_n": c_to_n,
             "c_to_n_plus_i": c_to_n_plus_i,
-            "gt_ratio": gt_ratio
+            "gt_ratio": gt_ratio,
+            "achievable_rate": achievable_rate
         }
 
         if link_type in ["星-地上行", "星-地下行"]: 
@@ -108,6 +111,18 @@ class LinkCalculator:
             i_linear = 10 ** (interference_psd / 10)
             return 10 * math.log10(c_linear / (n_linear + i_linear))
         return c_to_n
+
+    def calculate_achievable_rate(self, cni_db, bandwidth_mhz):
+        """计算可实现速率（Mbps）
+        参数：
+        cni_db: C/(N+I) 值（dB）
+        bandwidth_mhz: 带宽（MHz）
+        公式：R = B * log2(1 + 10^(C/(N+I)/10))
+        """
+        cni_linear = 10 ** (cni_db / 10)
+        bandwidth_hz = bandwidth_mhz * 1e6  # 转换为Hz
+        rate_bps = bandwidth_hz * math.log2(1 + cni_linear)
+        return rate_bps / 1e6  # 转换为Mbps
 
     def calculate_geometric_parameters(self, scan_angle_degrees, height):
         """
@@ -181,17 +196,6 @@ class LinkCalculator:
         """计算总损耗"""
         return (atmos_loss + scint_loss + pol_loss + link_margin +
                 beam_loss + scan_loss + path_loss + rain_fade)
-
-    def calculate_received_signal(self, eirp, total_loss, ant_gain, bandwidth):
-        """计算接收信号功率谱密度"""
-        # 计算总接收功率 (dBm)
-        # EIRP (dBW) + 30 → dBm - 总损耗 + 天线增益
-        total_power_dbm = eirp + 30 - total_loss + ant_gain  # dBW → dBm
-
-        # 计算功率谱密度 (dBm/MHz)
-        psd_dbm_mhz = total_power_dbm - 10 * math.log10(bandwidth)
-
-        return psd_dbm_mhz, total_power_dbm
 
     def calculate_received_signal(self, eirp, total_loss, ant_gain, bandwidth):
         """计算接收信号功率谱密度"""

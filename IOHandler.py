@@ -48,7 +48,9 @@ class InputHandler:
             "common": base_config["common"],
             "tx_params": config["tx_params"],
             "rx_params": config["rx_params"],
-            "optional": base_config["optional"]
+            "optional": base_config["optional"],
+            "beam_params": base_config["beam_params"],
+            "interference_params": base_config["interference_params"]
         }
 
         # 动态生成参数组
@@ -74,7 +76,7 @@ class InputHandler:
                 for param in params if param in self.params
             ]
             
-            has_checkboxes = group_type == "optional"
+            has_checkboxes = group_type in ["optional","beam_params", "interference_params"  ]
             self.create_param_entries(
                 scrollable_frame, 
                 param_labels,
@@ -254,7 +256,9 @@ class InputHandler:
             base_config["common"] +
             config["tx_params"] +
             config["rx_params"] +
-            base_config["optional"]
+            base_config["optional"] +
+            base_config["beam_params"] +
+            base_config["interference_params"]
         )
 
         # 重置参数值
