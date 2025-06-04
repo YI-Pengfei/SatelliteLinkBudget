@@ -259,7 +259,6 @@ class SatelliteLinkBudgetCalculator:
         if link_type in ["地-地上行", "地-地下行"]:
             # 合并进地面信道状态信息 
             input_params.update(self.input_handler.get_terrestrial_link_parameters()) 
-            print(input_params)
 
         return input_params
 

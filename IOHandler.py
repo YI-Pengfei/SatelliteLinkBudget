@@ -118,6 +118,8 @@ class InputHandler:
                          value='LoS').grid(row=1, column=1, pady=(10,0))
         ctk.CTkRadioButton(scenario_frame, text="NLoS", variable=self.los_var,
                          value='NLoS').grid(row=1, column=2, pady=(10,0))
+        ctk.CTkRadioButton(scenario_frame, text="LoS/NLoS概率加权", variable=self.los_var,
+                         value='LoS/NLoS概率加权').grid(row=1, column=3, pady=(10,0))
 
     def create_group_title(self, parent, title, font, color):
         title_label = ctk.CTkLabel(

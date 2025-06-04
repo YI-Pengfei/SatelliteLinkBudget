@@ -42,8 +42,8 @@ PARAM_MAPPING = {
     "terminal_noise_temp": {"ch_name": "终端噪声温度", "unit": "K", "default_value": "290"},
     
     # 基站参数
-    "bs_eirp": {"ch_name": "基站EIRP", "unit": "dBW", "default_value": {"地-地下行": "46+30+22.5"}},
-    "bs_antenna_gain": {"ch_name": "基站天线增益", "unit": "dBi", "default_value": "30.72"},
+    "bs_eirp": {"ch_name": "基站EIRP", "unit": "dBW", "default_value": {"地-地下行": "46-30+22.5"}},
+    "bs_antenna_gain": {"ch_name": "基站天线增益", "unit": "dBi", "default_value": "22.5"},
     "bs_noise_figure": {"ch_name": "基站噪声系数", "unit": "dB", "default_value": "2.4"},
     "bs_noise_temp": {"ch_name": "基站噪声温度", "unit": "K", "default_value": "290"},
     
@@ -51,7 +51,7 @@ PARAM_MAPPING = {
     "atmospheric_loss": {"ch_name": "大气损耗", "unit": "dB", "default_value": "0.1"},
     "scintillation_loss": {"ch_name": "闪烁损耗", "unit": "dB", "default_value": "0.3"},
     "polarization_loss": {"ch_name": "极化损耗", "unit": "dB", "default_value": "3"},
-    "beam_edge_loss": {"ch_name": "波束边缘损耗", "unit": "dB", "default_value": "1"},
+    "beam_edge_loss": {"ch_name": "波束增益衰减", "unit": "dB", "default_value": "1"},
     "scan_loss": {"ch_name": "扫描损耗", "unit": "dB", "default_value": "4"},
     "link_margin": {"ch_name": "链路余量", "unit": "dB", "default_value": "3"},
     
@@ -160,7 +160,7 @@ RESULT_CATEGORIES = {
             {"label": "C/N", "key": "c_to_n", "unit": "dB"},
             {"label": "C/(N+I)", "key": "c_to_n_plus_i", "unit": "dB"},
             {"label": "G/T值", "key": "gt_ratio", "unit": "dB/K"},  # 通用G/T值标签
-            {"label": "可实现速率", "key": "achievable_rate", "unit": "Mbps/MHz"}  
+            {"label": "可实现速率（香农公式）", "key": "achievable_rate", "unit": "Mbps"}  
         ]
     },
     "地面链路": {
@@ -174,7 +174,7 @@ RESULT_CATEGORIES = {
             {"label": "C/N", "key": "c_to_n", "unit": "dB"},
             {"label": "C/(N+I)", "key": "c_to_n_plus_i", "unit": "dB"},
             {"label": "G/T值", "key": "gt_ratio", "unit": "dB/K"},  # 地面链路G/T标签
-            {"label": "可实现速率", "key": "achievable_rate", "unit": "Mbps/MHz"}  
+            {"label": "可实现速率", "key": "achievable_rate", "unit": "Mbps"}  
         ]
     }
 }

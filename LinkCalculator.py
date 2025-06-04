@@ -218,6 +218,87 @@ class LinkCalculator:
 
 
     def detailed_calculation(self, input_params):
+        link_type = "星-地上行" if "satellite_scan_angle" in input_params else "地-地上行"
+        if link_type in ["星-地上行", "星-地下行"]:
+            results = self.perform_calculations(input_params, link_type)
+            geometric_steps = [
+                {
+                    '步骤': '几何参数计算',
+                    '公式': '三角公式（略）',
+                    '参数': f'地球半径={self.earth_radius}km, 卫星轨道高度={input_params["satellite_height"]}km, 卫星扫描角={input_params["satellite_scan_angle"]}°',
+                    '结果': f'终端仰角={results["terminal_elevation_angle"]:.2f}°, 星地距离={results["distance"]:.2f}km'
+                }
+            ]
+            rain_step = []
+            if "rain_rate" in input_params and input_params["rain_rate"] > 0:
+                rain_step = [{
+                    '步骤': '雨衰',
+                    '公式': '雨衰 = a * (降雨率^b) * 路径长度\n其中a=0.0051*频率^1.41, b=0.655*频率^-0.075, 路径长度=35*(sinθ)^-0.6',
+                    '参数': f'频率={input_params["frequency"]}GHz, θ={results["terminal_elevation_angle"]:.2f}°, 降雨率={input_params["rain_rate"]}mm/h',
+                    '结果': f'{results["rain_fade"]:.2f}dB'
+                }]
+            path_loss_step = [{
+                '步骤': '路径损耗',
+                '公式': '路径损耗 = 92.45 + 20*log10(频率) + 20*log10(距离)',
+                '参数': f'频率={input_params["frequency"]}GHz, 距离={results["distance"]:.2f}km',
+                '结果': f'{results["path_loss"]:.2f}dB'
+            }]
+        else:
+            results = self.perform_calculations(input_params, link_type)
+            geometric_steps = []
+            rain_step = []
+            path_loss_step = [{
+                '步骤': '路径损耗',
+                '公式': "3GPP TR 38.901 V18.0.0 (2024-03) \n \
+                Study on channel model for frequencies from 0.5 to 100 GHz (Release 18) \n \
+                Table 7.4.1-1: Pathloss models \n \
+                Table 7.4.2-1 LOS probability",
+                '参数': f'频率={input_params["frequency"]}GHz, 距离={results["distance"]:.2f}km',
+                '结果': f'{results["path_loss"]:.2f}dB'
+            }]
+
+        common_steps = [
+            {
+                '步骤': '总损耗',
+                '公式': '总损耗 = 路径损耗+雨衰+大气损耗+闪烁损耗+极化损耗+链路余量+波束边缘损耗+扫描损耗' if link_type in ["星-地上行", "星-地下行"] else '总损耗 = 路径损耗+波束边缘损耗',
+                '参数': f"路径损耗={results['path_loss']:.2f}dB, 雨衰={results.get('rain_fade', 0):.2f}dB, 大气损耗={input_params.get('atmospheric_loss', 0)}dB, 闪烁损耗={input_params.get('scintillation_loss', 0)}dB, 极化损耗={input_params.get('polarization_loss', 0)}dB, 链路余量={input_params.get('link_margin', 0)}dB, 波束边缘损耗={input_params.get('beam_edge_loss', 0)}dB, 扫描损耗={input_params.get('scan_loss', 0)}dB",
+                '结果': f'{results["total_loss"]:.2f}dB'
+            },
+            {
+                '步骤': '接收信号功率谱密度',
+                '公式': '接收信号功率谱密度 = EIRP + 30 - 总损耗 + 接收天线增益 - 10*log10(带宽)',
+                '参数': f'EIRP={input_params["tx_eirp"]}dBW, 总损耗={results["total_loss"]:.2f}dB, 接收天线增益={input_params["rx_antenna_gain"]}dBi, 带宽={input_params["bandwidth"]}MHz',
+                '结果': f'{results["received_signal_psd"]:.2f}dBm/MHz'
+            },
+            {
+                '步骤': '噪声功率谱密度',
+                '公式': '噪声功率谱密度 = 10*log10(玻尔兹曼常数*系统噪声温度) + 30 + 60\n其中，系统噪声温度=290*(噪声系数线性值-1)+天线噪声温度, 噪声系数线性值=10^(噪声系数/10)',
+                '参数': f'k={self.BOLTZMANN_CONSTANT:.2e} J/K, 噪声系数={input_params["rx_noise_figure"]}dB, 天线噪声温度={input_params["rx_noise_temp"]}K',
+                '结果': f'{results["noise_psd"]:.2f}dBm/MHz'
+            },
+            {
+                '步骤': 'C/N',
+                '公式': 'C/N = 接收信号功率谱密度 - 噪声功率谱密度',
+                '参数': f'接收信号功率谱密度={results["received_signal_psd"]:.2f}dBm/MHz, 噪声功率谱密度={results["noise_psd"]:.2f}dBm/MHz',
+                '结果': f'{results["c_to_n"]:.2f}dB'
+            },
+            {
+                '步骤': 'C/(N+I)',
+                '公式': 'C/(N+I) = 10*log10(接收信号功率谱密度线性值/(噪声功率谱密度线性值+干扰功率谱密度线性值))',
+                '参数': f'接收信号功率谱密度={results["received_signal_psd"]:.2f}dBm/MHz, 噪声功率谱密度={results["noise_psd"]:.2f}dBm/MHz, 干扰功率谱密度={input_params["interference_psd"]:.2f}dBm/MHz',
+                '结果': f'{results["c_to_n_plus_i"]:.2f}dB'
+            },
+            {
+                '步骤': 'G/T值',
+                '公式': 'G/T = 接收天线增益 - 10*log10(系统噪声温度)\n其中，系统噪声温度=290*(噪声系数线性值-1)+天线噪声温度',
+                '参数': f'接收天线增益={input_params["rx_antenna_gain"]}dBi, 噪声系数={input_params["rx_noise_figure"]}dB, 天线噪声温度={input_params["rx_noise_temp"]}K',
+                '结果': f'{results["gt_ratio"]:.2f}dB/K'
+            }
+        ]
+
+        return geometric_steps + rain_step + path_loss_step + common_steps
+
+    def detailed_calculation2(self, input_params):
         if "satellite_scan_angle" in input_params:
             results = self.perform_calculations_sat(input_params)
             
@@ -336,33 +417,6 @@ class LinkCalculator:
 
 
 
-if __name__ == "__main__":
-    # 示例输入参数
-    input_params = {
-        "frequency": 1.81,
-        "satellite_height": 400,
-        "tx_eirp": 56,
-        "atmospheric_loss": 0.1,
-        "scintillation_loss": 0.3,
-        "polarization_loss": 3,
-        "rx_antenna_gain": -5,
-        "rx_noise_figure": 7,
-        "rx_noise_temp": 290,
-        "satellite_scan_angle": 57,
-        "bandwidth": 5,
-        "rain_rate": 50,
-        "link_margin": 3,
-        "beam_edge_loss": 1,
-        "scan_loss": 4
-    }
-
-    calculator = LinkCalculator()
-    results = calculator.perform_calculations(input_params, "星-地下行")
-
-    for key, value in results.items():
-        print(f"{key}: {value}")
-
-
 class UnitConverter:
     """
     单位转换工具类
@@ -405,3 +459,31 @@ class UnitConverter:
                 return self.converters[conversion_type]["funcs"][1](value)
         except ValueError:
             return None
+
+
+if __name__ == "__main__":
+    # 示例输入参数
+    input_params = {
+        "frequency": 1.81,
+        "satellite_height": 400,
+        "tx_eirp": 56,
+        "atmospheric_loss": 0.1,
+        "scintillation_loss": 0.3,
+        "polarization_loss": 3,
+        "rx_antenna_gain": -5,
+        "rx_noise_figure": 7,
+        "rx_noise_temp": 290,
+        "satellite_scan_angle": 57,
+        "bandwidth": 5,
+        "rain_rate": 50,
+        "link_margin": 3,
+        "beam_edge_loss": 1,
+        "scan_loss": 4
+    }
+
+    calculator = LinkCalculator()
+    results = calculator.perform_calculations(input_params, "星-地下行")
+
+    for key, value in results.items():
+        print(f"{key}: {value}")
+
