@@ -5,7 +5,7 @@
 1. 支持输入链路预算参数，包括频率、距离、高度、极化方式等。
 2. 计算链路预算结果，包括信号强度、噪声功率、信噪比、链路长度等。
 3. 支持导出链路预算结果到Excel文件。
-依赖库 pip install customtkinter openpyxl pandas
+依赖库 pip install customtkinter openpyxl
 打包命令：pyinstaller --onedir --windowed  --hidden-import customtkinter  --hidden-import openpyxl --collect-all customtkinter  "D:\PySimpleGUI.py"
 """
 import tkinter as tk
