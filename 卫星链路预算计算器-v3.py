@@ -460,7 +460,11 @@ class SatelliteLinkBudgetCalculator:
         converter_window = ctk.CTkToplevel(self.root)
         converter_window.title("单位转换器")
         converter_window.geometry("600x400")
-        
+
+        # 将新窗口设置为主窗口的子窗口
+        converter_window.transient(self.root)
+        # 将新窗口提升到最前面
+        converter_window.lift()
         # 主框架
         main_frame = ctk.CTkFrame(converter_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
