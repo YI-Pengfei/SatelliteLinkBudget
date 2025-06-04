@@ -5,7 +5,7 @@
 1. 支持输入链路预算参数，包括频率、距离、高度、极化方式等。
 2. 计算链路预算结果，包括信号强度、噪声功率、信噪比、链路长度等。
 3. 支持导出链路预算结果到Excel文件。
-依赖库 pip install customtkinter openpyxl pandas
+依赖库 pip install customtkinter openpyxl
 打包命令：pyinstaller --onedir --windowed  --hidden-import customtkinter  --hidden-import openpyxl --collect-all customtkinter  "D:\PySimpleGUI.py"
 """
 import tkinter as tk
@@ -460,7 +460,11 @@ class SatelliteLinkBudgetCalculator:
         converter_window = ctk.CTkToplevel(self.root)
         converter_window.title("单位转换器")
         converter_window.geometry("600x400")
-        
+
+        # 将新窗口设置为主窗口的子窗口
+        converter_window.transient(self.root)
+        # 将新窗口提升到最前面
+        converter_window.lift()
         # 主框架
         main_frame = ctk.CTkFrame(converter_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)

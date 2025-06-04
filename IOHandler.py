@@ -301,107 +301,6 @@ class InputHandler:
         }
 
 # 结果显示类
-class ResultDisplay2222:
-    def __init__(self):
-        self.result_frame = None
-        self.result_labels = {}
-
-    def create_result_display(self, parent):
-        # 初始化滚动区域（只创建一次）
-        self.result_scrollable_frame = ctk.CTkScrollableFrame(
-            parent,
-            fg_color="transparent",
-            scrollbar_button_hover_color="#E5E6EB",
-            scrollbar_button_color="#F2F3F5"
-        )
-        self.result_scrollable_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # 清空现有内容
-        for widget in parent.winfo_children():
-            widget.destroy()
-
-        title_label = ctk.CTkLabel(
-            parent, text="计算结果",
-            font=("微软雅黑", 14, "bold")
-        )
-        title_label.pack(pady=(5, 10))
-
-        # 创建结果显示区域
-        self.result_scrollable_frame = ctk.CTkScrollableFrame(parent)
-        self.result_scrollable_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)  # 增加左右边距
-
-    def update_results(self, results, link_type):
-        # 清空现有结果
-        if not hasattr(self, 'result_container'):
-            self.result_container = ctk.CTkFrame(self.result_scrollable_frame)
-            self.result_container.pack(fill=tk.BOTH, expand=True)
-        
-        # 隐藏所有子元素
-        for child in self.result_container.winfo_children():
-            child.pack_forget()
-    
-        # 链路类型标签
-        if not hasattr(self, 'link_type_label'):
-            self.link_type_label = ctk.CTkLabel(
-                self.result_container,
-                font=("微软雅黑", 12, "bold"),
-                anchor="w"
-            )
-        self.link_type_label.configure(text=f"链路类型: {link_type}")
-        self.link_type_label.pack(pady=(5, 10), anchor="w")
-    
-        # 结果分类容器
-        if not hasattr(self, 'category_frames'):
-            self.category_frames = {}
-        
-        # 遍历每个结果分类
-        for category_idx, (category, items) in enumerate(results.items()):
-            # 复用或创建分类框架
-            category_frame = ctk.CTkFrame(self.result_container, fg_color="transparent")
-            self.category_frames[category] = category_frame
-            
-            # 分类标题
-            if not hasattr(category_frame, 'title_label'):
-                category_frame.title_label = ctk.CTkLabel(
-                    category_frame,
-                    font=("微软雅黑", 12, "bold"),
-                    text_color="#165DFF",
-                    anchor="w"
-                )
-                category_frame.title_label.pack(fill=tk.X, pady=(10,5))
-            category_frame.title_label.configure(text=category)
-            
-            # 结果项容器
-            category_frame.item_frames = []
-            
-            # 更新或创建结果项
-            for item_idx, (label, value, unit) in enumerate(items):
-                item_frame = ctk.CTkFrame(category_frame, fg_color="transparent")
-                item_frame.pack(fill=tk.X, pady=2)
-                ctk.CTkLabel(item_frame, width=200, anchor="w").pack(side=tk.LEFT, padx=10)
-                ctk.CTkLabel(item_frame, anchor="e").pack(side=tk.RIGHT, padx=10)
-                category_frame.item_frames.append(item_frame)
-                
-                # 更新标签内容
-                item_labels = item_frame.winfo_children()
-                item_labels[0].configure(text=label)
-                item_labels[1].configure(text=f"{format_result(value)} {unit}")
-            
-            # 显示分类框架
-            category_frame.pack(fill=tk.X, pady=5)
-    
-        # 强制刷新界面
-        self.result_scrollable_frame._parent_canvas.yview_moveto(0)
-
-    def clear_results(self):
-        """清空所有结果标签内容"""
-        if hasattr(self, 'result_labels'):
-            for section in self.result_labels.values():
-                for label_info in section:
-                    label_info[0].configure(text="")  # 清空结果标签内容
-                    label_info[1].configure(text="")  # 清空单位标签内容
-
-
 class ResultDisplay:
     def __init__(self):
         self.result_frames = {}  # 存储各分类框架
@@ -461,3 +360,9 @@ class ResultDisplay:
 
         # 强制刷新界面
         self.parent.update_idletasks()
+
+    def clear_results(self):
+        """清空结果显示区域"""
+        for widget in self.parent.winfo_children():
+            widget.destroy()
+        self.result_frames.clear()
