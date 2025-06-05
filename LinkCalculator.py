@@ -216,6 +216,18 @@ class LinkCalculator:
         t_sys = 290 * (f_linear - 1) + t_antenna
         return ant_gain - 10 * math.log10(t_sys)
 
+    # 新增：计算 ACIR 的方法
+    def calculate_acir(self, aclr, acs):
+        """
+        计算 ACIR 的方法
+        公式：ACIR = 1/(1/ACLR + 1/ACS)
+        """
+        if aclr == 0 or acs == 0:
+            raise ValueError("ACLR 和 ACS 不能为 0")
+        aclr_linear = 10 ** (aclr / 10)
+        acs_linear = 10 ** (acs / 10)
+        acir_linear = 1 / ((1 / aclr_linear) + (1 / acs_linear))
+        return 10 * math.log10(acir_linear)
 
     def detailed_calculation(self, input_params):
         link_type = "星-地上行" if "satellite_scan_angle" in input_params else "地-地上行"
