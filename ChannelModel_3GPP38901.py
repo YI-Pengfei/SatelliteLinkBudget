@@ -36,7 +36,7 @@ def pathLoss_3GPP38901(frequency, d, scene, los_condition):
         # 计算断点距离和3D距离
         d_break = (2 * math.pi * h_bs * h_ut * frequency * 10 ** 9) / c
         d_3d = math.sqrt(d ** 2 + (h_bs - h_ut) ** 2)
-        # print(f"农村宏蜂窝RMa场景下，断点距离为: {d_break}")
+        print(f"农村宏蜂窝RMa场景下，断点距离为: {d_break}")
         # 计算LoS路径损耗
         PL1 = 20 * math.log10(40 * math.pi * d_3d * frequency / 3) + min(0.03 * h ** 1.72, 10) * math.log10(d_3d) - min(
             0.044 * h ** 1.72, 14.77) + 0.002 * math.log10(h) * d_3d
@@ -62,10 +62,7 @@ def pathLoss_3GPP38901(frequency, d, scene, los_condition):
             PL_NLoS = PL4
         # 加权计算路径损耗
         PL = p_los * PL_LoS + (1 - p_los) * PL_NLoS
-        # print(f"农村宏蜂窝RMa场景下，LoS路损: {PL_LoS}")
-        # print(f"农村宏蜂窝RMa场景下，NLoS路损: {PL_NLoS}")
-        # print(f"农村宏蜂窝RMa场景下，加权后的路损: {PL}")
-        
+
     elif scene == "城市宏蜂窝UMa":
         # 基础参数
         h_bs = 25  # 基站高度，单位米
@@ -112,7 +109,8 @@ def pathLoss_3GPP38901(frequency, d, scene, los_condition):
         # print(f"城市宏蜂窝场景下，NLoS路损: {PL_NLoS}")
         # print(f"城市宏蜂窝场景下，加权后的路损: {PL}")
 
-    if los_condition == "LOS":
+
+    if los_condition == "LoS":
         return PL_LoS
     elif los_condition == "NLoS":
         return PL_NLoS
@@ -121,4 +119,5 @@ def pathLoss_3GPP38901(frequency, d, scene, los_condition):
 
 
 if __name__ == "__main__":
-    pl = pathLoss_3GPP38901(1.82, "农村宏蜂窝RMa", 1000)
+    pl = pathLoss_3GPP38901(1.71,  500,"农村宏蜂窝RMa", 'LoS')
+    print(f'路径损耗为{pl:.2f}dB')
