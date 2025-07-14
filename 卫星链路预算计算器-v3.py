@@ -6,25 +6,34 @@
 2. 计算链路预算结果，包括信号强度、噪声功率、信噪比、链路长度等。
 3. 支持导出链路预算结果到Excel文件。
 依赖库 pip install customtkinter openpyxl
-打包命令：pyinstaller --onedir --windowed  --hidden-import customtkinter  --hidden-import openpyxl --collect-all customtkinter  "D:\PySimpleGUI.py"
+打包命令：pyinstaller --onefile --windowed  --hidden-import customtkinter  --hidden-import openpyxl --collect-all customtkinter  D:\GitHub\SatelliteLinkBudget\SatelliteLinkBudget-v3.py
 
-根据您当前的打包命令和Anaconda环境，建议按照以下步骤操作：
-
+######################
+20250714 Deepseek提供的打包步骤：根据您当前的打包命令和Anaconda环境，建议按照以下步骤操作：
 1. 首先在Anaconda中创建干净环境：
-```
 conda create -n satellite_env python=3.10
 conda activate satellite_env
-```
-2. 安装必要依赖：
-```
-pip install customtkinter openpyxl pyinstaller
-```
-3. 修改打包命令（注意使用绝对路径）：
-```
-pyinstaller --onefile --windowed --hidden-import customtkinter --hidden-import openpyxl --collect-all customtkinter "D:\GitHub\SatelliteLinkBudget\Satellite_Link_Budget_Tool-v3.py"
-```
 
+2. 安装必要依赖：
+pip install customtkinter openpyxl pyinstaller
+
+3. 修改打包命令（注意使用绝对路径）：
+pyinstaller --onedir --windowed --hidden-import customtkinter --hidden-import 
+openpyxl --collect-all customtkinter "D:\GitHub\SatelliteLinkBudget\SatelliteLinkBudget-v3.py"
+############################
+
+###########################
+20250715 实测能行得通的步骤：
+1. 在Anaconda中创建干净环境：
+conda create -n satellite_env python=3.10
+conda activate satellite_env
+2. 用管理员身份运行anconda中的命令行工具，执行 conda install pyinstaller 命令
+3. 用普通身份运行anconda中的命令行工具，执行打包命令：
+pyinstaller --onefile --windowed  --hidden-import customtkinter  --hidden-import openpyxl --collect-all customtkinter  D:\GitHub\SatelliteLinkBudget\SatelliteLinkBudget-v3.py
+4. 是否需要安装openpyxl、customtkinter、tkinter库有待尝试
 """
+
+
 import tkinter as tk
 import customtkinter as ctk
 from openpyxl import Workbook
