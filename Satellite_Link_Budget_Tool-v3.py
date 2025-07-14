@@ -21,7 +21,9 @@ pip install customtkinter openpyxl pyinstaller
 ```
 3. 修改打包命令（注意使用绝对路径）：
 ```
-pyinstaller --onefile --windowed --hidden-import customtkinter --hidden-import openpyxl --collect-all customtkinter "D:\GitHub\SatelliteLinkBudget\Satellite_Link_Budget_Tool-v3.py"
+pyinstaller --onedir --windowed --hidden-import customtkinter --hidden-import 
+openpyxl --collect-all customtkinter "D:\GitHub\SatelliteLinkBudget\卫星链路预
+算计算器-v3.py"
 ```
 
 """
