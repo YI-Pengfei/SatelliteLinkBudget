@@ -11,7 +11,7 @@
 ######################
 20250714 Deepseek提供的打包步骤：根据您当前的打包命令和Anaconda环境，建议按照以下步骤操作：
 1. 首先在Anaconda中创建干净环境：
-conda create -n satellite_env python=3.10
+conda create -n satellite_env python=3.10
 conda activate satellite_env
 
 2. 安装必要依赖：
@@ -25,12 +25,13 @@ openpyxl --collect-all customtkinter "D:\GitHub\SatelliteLinkBudget\Satellite
 ###########################
 20250715 实测能行得通的步骤：
 1. 在Anaconda中创建干净环境：
-conda create -n satellite_env python=3.10
+conda create -n satellite_env python=3.10
 conda activate satellite_env
 2. 用管理员身份运行anconda中的命令行工具，执行 conda install pyinstaller 命令
-3. 用普通身份运行anconda中的命令行工具，执行打包命令：
+3. 安装openpyxl、customtkinter库 （好像不用装tkinter库）
+4. 用普通身份运行anconda中的命令行工具，执行打包命令：
 pyinstaller --onefile --windowed  --hidden-import customtkinter  --hidden-import openpyxl --collect-all customtkinter  D:\GitHub\SatelliteLinkBudget\SatelliteLinkBudget-v3.py
-4. 是否需要安装openpyxl、customtkinter、tkinter库有待尝试
+
 """
 
 
